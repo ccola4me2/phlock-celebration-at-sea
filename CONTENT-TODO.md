@@ -22,6 +22,13 @@ replace them with real values, then delete the `.tbd` wrapper span.
       rates docx and the math ($1,091.40 × 2) say $2,182.80 — the site uses
       $2,182.80. Confirm which is right.
 
+## Past-cruise photos (index.html, Experience section)
+- [ ] The "The Flock In Action" section has 8 dashed placeholder tiles
+      (4 × "2025 Sailing", 4 × "2026 Sailing"). Drop real photos into
+      assets/img/ and replace each `<div class="placeholder-card">…</div>`
+      with a `<figure class="photo-card"><img …><figcaption>…</figcaption></figure>`
+      block (same markup as the venue gallery in The Ship section).
+
 ## Legal (privacy.html)
 - [ ] "Last updated" date
 

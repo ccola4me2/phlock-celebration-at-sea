@@ -19,6 +19,8 @@
   --ink-soft: #55606c;
   --white: #ffffff;
   --teal-accent: #3fa3a0;
+  --coral: #f0704f;
+  --sunny: #ffd166;
 
   --font-display: "Cinzel", "Trajan Pro", Georgia, serif;
   --font-serif: "Cormorant Garamond", Georgia, serif;
@@ -264,13 +266,46 @@ button { font-family: inherit; }
   padding: var(--space-7) 0 var(--space-7);
   overflow: hidden;
 }
+.hero-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 640px) auto;
+  align-items: center;
+  gap: var(--space-5);
+  position: relative;
+  z-index: 1;
+}
 .hero-inner { max-width: 640px; position: relative; z-index: 1; }
+.hero-logo {
+  width: clamp(170px, 22vw, 300px);
+  height: clamp(170px, 22vw, 300px);
+  border-radius: 50%;
+  background: var(--white);
+  object-fit: contain;
+  padding: 8px;
+  border: 4px solid var(--gold);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 0 10px rgba(255, 255, 255, 0.08);
+  transform: rotate(-7deg);
+  justify-self: end;
+}
+@media (max-width: 860px) {
+  .hero-wrap { grid-template-columns: 1fr; }
+  .hero-logo { justify-self: start; width: 150px; height: 150px; order: -1; }
+}
 .hero-script {
   font-family: var(--font-script);
-  font-size: clamp(1.6rem, 3vw, 2.2rem);
-  color: var(--teal-accent);
+  font-size: clamp(1.7rem, 3.2vw, 2.4rem);
+  color: var(--sunny);
   display: block;
   margin-bottom: 0.2em;
+  transform: rotate(-2deg);
+  transform-origin: left;
+}
+.hero-state {
+  font-family: var(--font-script);
+  font-size: clamp(1.4rem, 2.6vw, 1.9rem);
+  color: var(--coral);
+  margin: 0.2em 0 0.6em;
+  transform: rotate(-1.5deg);
 }
 .hero h1 {
   font-family: var(--font-display);
@@ -424,6 +459,34 @@ section { padding: var(--space-6) 0; }
   color: rgba(255,255,255,0.75);
 }
 figure.photo-card { margin: 0; }
+
+/* -----------------------------------------------------------
+   Past-cruise photo placeholders
+   ----------------------------------------------------------- */
+.placeholder-card {
+  aspect-ratio: 16 / 10;
+  border: 2px dashed var(--gold);
+  border-radius: var(--radius-md);
+  background: rgba(201, 165, 69, 0.07);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4em;
+  color: var(--ink-soft);
+  text-align: center;
+  padding: var(--space-2);
+}
+.placeholder-card svg { width: 34px; height: 34px; color: var(--gold); }
+.placeholder-card .ph-year {
+  font-family: var(--font-display);
+  color: var(--navy-800);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.placeholder-card .ph-note { font-size: 0.8rem; }
 
 /* -----------------------------------------------------------
    Itinerary strip
@@ -652,6 +715,20 @@ table.pricing-table tr:last-child td { border-bottom: none; }
 }
 .avatar.avatar-logo { background: var(--white); padding: 6px; }
 .avatar.avatar-logo img { width: 100%; height: 100%; object-fit: contain; }
+.avatar-wide {
+  width: 220px;
+  max-width: 100%;
+  height: 104px;
+  border-radius: var(--radius-md);
+  background: var(--white);
+  border: 2px solid var(--gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 18px;
+  margin: 0 auto var(--space-2);
+}
+.avatar-wide img { max-width: 100%; max-height: 100%; object-fit: contain; }
 .team-card h3 { margin-bottom: 0.1em; }
 .team-role {
   color: var(--gold);
