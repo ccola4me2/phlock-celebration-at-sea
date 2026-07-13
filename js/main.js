@@ -50,7 +50,7 @@ if (contactForm) {
     const cabin = contactForm.cabin.value;
     const message = contactForm.message.value.trim();
 
-    const subject = encodeURIComponent('2028 Parrothead Cruise Inquiry');
+    const subject = encodeURIComponent('2027 Parrothead Day Cruise Inquiry');
     const bodyLines = [
       `Name: ${name}`,
       `Email: ${email}`,
