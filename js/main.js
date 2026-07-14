@@ -39,6 +39,66 @@ document.querySelectorAll('.faq-item').forEach((item) => {
   });
 });
 
+// Photo lightbox — click any gallery photo to enlarge
+const photoCards = Array.from(document.querySelectorAll('.photo-card'));
+if (photoCards.length) {
+  const lightbox = document.createElement('div');
+  lightbox.className = 'lightbox';
+  lightbox.setAttribute('role', 'dialog');
+  lightbox.setAttribute('aria-label', 'Enlarged photo');
+  lightbox.innerHTML =
+    '<button class="lightbox-btn lightbox-close" aria-label="Close">&times;</button>' +
+    '<button class="lightbox-btn lightbox-prev" aria-label="Previous photo">&#8249;</button>' +
+    '<button class="lightbox-btn lightbox-next" aria-label="Next photo">&#8250;</button>' +
+    '<img alt="">' +
+    '<div class="lightbox-caption"><strong></strong><span></span></div>';
+  document.body.appendChild(lightbox);
+
+  const lbImg = lightbox.querySelector('img');
+  const lbTitle = lightbox.querySelector('.lightbox-caption strong');
+  const lbSub = lightbox.querySelector('.lightbox-caption span');
+
+  let group = [];
+  let index = 0;
+
+  const show = (i) => {
+    index = (i + group.length) % group.length;
+    const card = group[index];
+    const img = card.querySelector('img');
+    lbImg.src = img.src;
+    lbImg.alt = img.alt;
+    const title = card.querySelector('figcaption strong');
+    const sub = card.querySelector('figcaption span');
+    lbTitle.textContent = title ? title.textContent : '';
+    lbSub.textContent = sub ? sub.textContent : '';
+  };
+
+  const open = (card) => {
+    const grid = card.closest('.grid');
+    group = grid ? Array.from(grid.querySelectorAll('.photo-card')) : [card];
+    show(group.indexOf(card));
+    lightbox.classList.add('is-open');
+    document.body.style.overflow = 'hidden';
+  };
+
+  const close = () => {
+    lightbox.classList.remove('is-open');
+    document.body.style.overflow = '';
+  };
+
+  photoCards.forEach((card) => card.addEventListener('click', () => open(card)));
+  lightbox.querySelector('.lightbox-close').addEventListener('click', close);
+  lightbox.querySelector('.lightbox-prev').addEventListener('click', (e) => { e.stopPropagation(); show(index - 1); });
+  lightbox.querySelector('.lightbox-next').addEventListener('click', (e) => { e.stopPropagation(); show(index + 1); });
+  lightbox.addEventListener('click', (e) => { if (e.target === lightbox || e.target === lbImg) close(); });
+  document.addEventListener('keydown', (e) => {
+    if (!lightbox.classList.contains('is-open')) return;
+    if (e.key === 'Escape') close();
+    if (e.key === 'ArrowLeft') show(index - 1);
+    if (e.key === 'ArrowRight') show(index + 1);
+  });
+}
+
 // Contact form -> mailto handoff (no backend configured yet)
 const contactForm = document.getElementById('contactForm');
 if (contactForm) {
