@@ -38,10 +38,9 @@ replace them with real values, then delete the `.tbd` wrapper span.
       design mockup, not a confirmed booking document.
 - [ ] Replace the Facebook `href="#"` links in the footer of every page with
       the real social URL.
-- [ ] The contact form (contact.html) currently opens the visitor's email
-      client via a `mailto:` link (see js/main.js) since there's no backend.
-      For direct-to-inbox submissions, wire it to a form service (e.g.
-      Formspree) or a Cloudflare Worker.
+- [x] Done — the contact form is now an embedded GoHighLevel form
+      (form ID ImLjJhWmxBwiiKP4kuwA); submissions go straight to your
+      LeadConnector/GHL account.
 - [ ] Confirm rights/permission to use Margaritaville at Sea's ship and
       venue renderings (in `assets/img/`). An affiliation disclaimer is
       already in the footer and privacy page.

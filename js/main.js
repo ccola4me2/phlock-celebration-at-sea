@@ -99,28 +99,4 @@ if (photoCards.length) {
   });
 }
 
-// Contact form -> mailto handoff (no backend configured yet)
-const contactForm = document.getElementById('contactForm');
-if (contactForm) {
-  contactForm.addEventListener('submit', (event) => {
-    event.preventDefault();
-    const name = contactForm.name.value.trim();
-    const email = contactForm.email.value.trim();
-    const phone = contactForm.phone.value.trim();
-    const cabin = contactForm.cabin.value;
-    const message = contactForm.message.value.trim();
-
-    const subject = encodeURIComponent('2027 Parrothead Day Cruise Inquiry');
-    const bodyLines = [
-      `Name: ${name}`,
-      `Email: ${email}`,
-      phone ? `Phone: ${phone}` : null,
-      `Cabin Interest: ${cabin}`,
-      '',
-      message
-    ].filter(Boolean);
-    const body = encodeURIComponent(bodyLines.join('\n'));
-
-    window.location.href = `mailto:PTVacations@aol.com?subject=${subject}&body=${body}`;
-  });
-}
+// Contact form is an embedded GoHighLevel form (see contact.html) — no local handling needed.
