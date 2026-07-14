@@ -276,20 +276,16 @@ button { font-family: inherit; }
 }
 .hero-inner { max-width: 640px; position: relative; z-index: 1; }
 .hero-logo {
-  width: clamp(170px, 22vw, 300px);
-  height: clamp(170px, 22vw, 300px);
-  border-radius: 50%;
-  background: var(--white);
+  width: clamp(190px, 25vw, 340px);
+  height: auto;
   object-fit: contain;
-  padding: 8px;
-  border: 4px solid var(--gold);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 0 10px rgba(255, 255, 255, 0.08);
+  filter: drop-shadow(0 16px 36px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 24px rgba(255, 220, 150, 0.25));
   transform: rotate(-7deg);
   justify-self: end;
 }
 @media (max-width: 860px) {
   .hero-wrap { grid-template-columns: 1fr; }
-  .hero-logo { justify-self: start; width: 150px; height: 150px; order: -1; }
+  .hero-logo { justify-self: start; width: 160px; order: -1; }
 }
 .hero-script {
   font-family: var(--font-script);
