@@ -16,7 +16,8 @@ Remaining items are marked with a dashed "✎ TBD" badge in the pages —
 replace them with real values, then delete the `.tbd` wrapper span.
 
 ## Pricing details (pricing.html)
-- [ ] Deposit amount and final payment due date
+- [x] Done — $400 deposit, final payment due February 16, 2027 (on the
+      pricing page booking policy and in the FAQ).
 - [ ] Travel protection price (currently "Ask your advisor")
 - [ ] Note: flyer shows Breezy Balcony double total as $2,181.80 but the
       rates docx and the math ($1,091.40 × 2) say $2,182.80 — the site uses
