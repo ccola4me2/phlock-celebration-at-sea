@@ -628,23 +628,25 @@ figure.photo-card { margin: 0; cursor: zoom-in; }
   margin-top: var(--space-3);
 }
 .ship-stat {
-  border: 1px solid rgba(201, 165, 69, 0.4);
+  background: var(--white);
+  border: 1px solid rgba(201, 165, 69, 0.5);
   border-radius: var(--radius-sm);
   padding: var(--space-2);
   text-align: center;
+  box-shadow: var(--shadow-sm);
 }
 .ship-stat .num {
   font-family: var(--font-display);
   font-size: 1.3rem;
   font-weight: 700;
-  color: var(--gold-light);
+  color: var(--navy-800);
   display: block;
 }
 .ship-stat .lbl {
   font-size: 0.68rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(255,255,255,0.6);
+  color: var(--ink-soft);
 }
 @media (max-width: 860px) { .ship-feature { grid-template-columns: 1fr; } }
 
