@@ -259,53 +259,12 @@ button { font-family: inherit; }
    ----------------------------------------------------------- */
 .hero {
   position: relative;
-  background: var(--navy-900);
-  color: var(--white);
-  padding: var(--space-7) 0 var(--space-7);
-  overflow: hidden;
-}
-/* Photo layer with a slow drift/zoom, like floating on the water */
-.hero::before {
-  content: "";
-  position: absolute;
-  inset: 0;
   background:
     linear-gradient(100deg, rgba(6, 15, 28, 0.94) 0%, rgba(8, 22, 39, 0.72) 38%, rgba(8, 22, 39, 0.15) 75%, rgba(6, 15, 28, 0.35) 100%),
     url("../assets/img/ship-exterior.jpg") right center / cover no-repeat;
-  transform-origin: 65% 40%;
-  animation: heroDrift 38s ease-in-out infinite alternate;
-  will-change: transform;
-}
-/* Soft band of light sweeping across the water */
-.hero::after {
-  content: "";
-  position: absolute;
-  left: -60%;
-  bottom: 0;
-  width: 60%;
-  height: 70%;
-  background: linear-gradient(
-    75deg,
-    transparent 0%,
-    rgba(255, 220, 150, 0.09) 38%,
-    rgba(255, 255, 255, 0.13) 50%,
-    rgba(255, 220, 150, 0.09) 62%,
-    transparent 100%
-  );
-  mix-blend-mode: screen;
-  pointer-events: none;
-  animation: heroShimmer 17s linear infinite;
-}
-@keyframes heroDrift {
-  from { transform: scale(1) translateX(0); }
-  to { transform: scale(1.07) translateX(-1.2%); }
-}
-@keyframes heroShimmer {
-  from { transform: translateX(0); }
-  to { transform: translateX(290%); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .hero::before, .hero::after { animation: none; }
+  color: var(--white);
+  padding: var(--space-7) 0 var(--space-7);
+  overflow: hidden;
 }
 .hero-wrap {
   display: grid;
