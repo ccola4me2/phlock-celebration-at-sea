@@ -99,4 +99,21 @@ if (photoCards.length) {
   });
 }
 
-// Contact form is an embedded GoHighLevel form (see contact.html) — no local handling needed.
+// Contact form is an embedded GoHighLevel form (see contact.html).
+// Pass the first-touch attribution cookie (set by the Cloudflare Worker when
+// a visitor arrives via an alias domain) into the form as utm_source so
+// every lead records which domain it originally came from.
+const ghlFrame = document.querySelector('iframe[data-form-id]');
+if (ghlFrame) {
+  const match = document.cookie.match(/(?:^|;\s*)original_domain=([^;]+)/);
+  if (match) {
+    try {
+      const frameUrl = new URL(ghlFrame.src);
+      if (!frameUrl.searchParams.has('utm_source')) {
+        frameUrl.searchParams.set('utm_source', decodeURIComponent(match[1]));
+        frameUrl.searchParams.set('utm_medium', 'domain-redirect');
+        ghlFrame.src = frameUrl.toString();
+      }
+    } catch (e) { /* leave the form as-is */ }
+  }
+}

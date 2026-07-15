@@ -3,6 +3,7 @@
 .gitignore
 .assetsignore
 wrangler.jsonc
+src
 CONTENT-TODO.md
 README.md
 PH Cruise
