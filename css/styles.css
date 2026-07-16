@@ -341,6 +341,31 @@ button { font-family: inherit; }
   margin-bottom: var(--space-4);
 }
 .hero-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.hero-offer {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75em;
+  margin-top: var(--space-3);
+  padding: 0.7em 1.4em;
+  border: 1px solid rgba(201, 165, 69, 0.65);
+  border-radius: 999px;
+  background: rgba(8, 22, 39, 0.55);
+  backdrop-filter: blur(4px);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.3), inset 0 0 18px rgba(201, 165, 69, 0.08);
+  color: var(--gold-pale);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.hero-offer svg { width: 19px; height: 19px; color: var(--gold-light); flex-shrink: 0; }
+.hero-offer strong {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--gold-light);
+  font-size: 1.12em;
+  letter-spacing: 0.06em;
+}
 
 /* -----------------------------------------------------------
    Vibes strip
