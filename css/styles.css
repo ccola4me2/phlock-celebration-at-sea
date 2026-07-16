@@ -281,11 +281,11 @@ button { font-family: inherit; }
   object-fit: contain;
   filter: drop-shadow(0 16px 36px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 24px rgba(255, 220, 150, 0.25));
   transform: rotate(-7deg);
-  justify-self: end;
 }
 @media (max-width: 860px) {
   .hero-wrap { grid-template-columns: 1fr; }
-  .hero-logo { justify-self: start; width: 160px; order: -1; }
+  .hero-side { justify-self: start; align-items: flex-start; order: -1; }
+  .hero-logo { width: 160px; }
 }
 .hero-script {
   font-family: var(--font-script);
@@ -341,31 +341,38 @@ button { font-family: inherit; }
   margin-bottom: var(--space-4);
 }
 .hero-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.hero-side {
+  justify-self: end;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
 .hero-offer {
   display: inline-flex;
   align-items: center;
-  gap: 0.75em;
-  margin-top: var(--space-3);
-  padding: 0.7em 1.4em;
-  border: 1px solid rgba(201, 165, 69, 0.65);
+  gap: 0.8em;
+  padding: 0.8em 1.6em;
+  border: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: 999px;
-  background: rgba(8, 22, 39, 0.55);
-  backdrop-filter: blur(4px);
-  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.3), inset 0 0 18px rgba(201, 165, 69, 0.08);
-  color: var(--gold-pale);
-  font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
+  background: linear-gradient(135deg, var(--gold-light), var(--gold));
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), 0 0 24px rgba(201, 165, 69, 0.35);
+  color: var(--navy-900);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
+  text-align: left;
 }
-.hero-offer svg { width: 19px; height: 19px; color: var(--gold-light); flex-shrink: 0; }
+.hero-offer svg { width: 22px; height: 22px; color: var(--navy-900); flex-shrink: 0; }
+.hero-offer span { display: flex; flex-direction: column; line-height: 1.35; }
 .hero-offer strong {
   font-family: var(--font-display);
   font-weight: 700;
-  color: var(--gold-light);
-  font-size: 1.12em;
-  letter-spacing: 0.06em;
+  font-size: 1.25em;
+  letter-spacing: 0.05em;
 }
+.hero-offer em { font-style: normal; font-weight: 600; opacity: 0.85; font-size: 0.92em; }
 
 /* -----------------------------------------------------------
    Vibes strip
