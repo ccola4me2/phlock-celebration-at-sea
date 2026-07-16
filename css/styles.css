@@ -807,6 +807,12 @@ table.pricing-table tr:last-child td { border-bottom: none; }
 .team-meta { display: flex; flex-direction: column; gap: 0.4em; margin-top: var(--space-2); font-size: 0.92rem; }
 .team-meta a { color: var(--navy-800); font-weight: 600; }
 .team-meta a:hover { color: var(--gold); }
+.team-note {
+  font-size: 0.76rem;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+  margin-top: 0.35em;
+}
 
 /* -----------------------------------------------------------
    FAQ accordion
