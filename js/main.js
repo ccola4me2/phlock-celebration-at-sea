@@ -40,7 +40,8 @@ document.querySelectorAll('.faq-item').forEach((item) => {
 });
 
 // Photo lightbox — click any gallery photo to enlarge
-const photoCards = Array.from(document.querySelectorAll('.photo-card'));
+// (only photo-cards that actually contain an image; placeholder cards are skipped)
+const photoCards = Array.from(document.querySelectorAll('.photo-card')).filter((c) => c.querySelector('img'));
 if (photoCards.length) {
   const lightbox = document.createElement('div');
   lightbox.className = 'lightbox';
@@ -75,7 +76,7 @@ if (photoCards.length) {
 
   const open = (card) => {
     const grid = card.closest('.grid');
-    group = grid ? Array.from(grid.querySelectorAll('.photo-card')) : [card];
+    group = grid ? Array.from(grid.querySelectorAll('.photo-card')).filter((c) => c.querySelector('img')) : [card];
     show(group.indexOf(card));
     lightbox.classList.add('is-open');
     document.body.style.overflow = 'hidden';

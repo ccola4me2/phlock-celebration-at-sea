@@ -847,6 +847,49 @@ table.pricing-table tr:last-child td { border-bottom: none; }
 }
 
 /* -----------------------------------------------------------
+   Charity page — quotes & auction placeholders
+   ----------------------------------------------------------- */
+.quote-card {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 1.35rem;
+  line-height: 1.55;
+}
+.quote-card blockquote { margin: 0; font: inherit; }
+blockquote.quote-card {
+  margin: 0;
+  padding-left: 1.3em;
+  border-left: 3px solid var(--gold);
+  color: var(--gold-pale);
+}
+.card.quote-card { color: var(--navy-800); }
+.quote-attribution {
+  display: block;
+  margin-top: 0.9em;
+  font-family: var(--font-body);
+  font-style: normal;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.auction-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 3.2em;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.photo-card:has(.auction-placeholder) { cursor: default; }
+
+/* -----------------------------------------------------------
    FAQ accordion
    ----------------------------------------------------------- */
 .faq-list { display: flex; flex-direction: column; gap: var(--space-2); max-width: 800px; margin: 0 auto; }
