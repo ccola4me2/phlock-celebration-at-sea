@@ -897,6 +897,11 @@ blockquote.quote-card {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 .sfc-logo:hover { transform: translateY(-3px); box-shadow: 0 14px 34px rgba(0, 0, 0, 0.4); }
+.hero.charity-hero {
+  background:
+    linear-gradient(180deg, rgba(6, 15, 28, 0.72) 0%, rgba(6, 15, 28, 0.5) 45%, rgba(6, 15, 28, 0.82) 100%),
+    url("../assets/img/charity-hero.jpg") center 32% / cover no-repeat;
+}
 
 /* -----------------------------------------------------------
    FAQ accordion
