@@ -930,11 +930,11 @@ blockquote.quote-card {
 }
 .cfc-logo {
   position: relative;
-  width: clamp(240px, 32vw, 340px);
-  aspect-ratio: 1 / 1;
+  width: clamp(300px, 40vw, 440px);
+  aspect-ratio: 341 / 323;
   margin: 0 auto var(--space-3);
   cursor: pointer;
-  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.45));
+  filter: drop-shadow(0 6px 20px rgba(0, 0, 0, 0.5));
 }
 .cfc-logo img {
   position: absolute;
