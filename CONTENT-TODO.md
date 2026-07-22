@@ -12,19 +12,19 @@ suites $25), and enhancements (drink $503.92, Wi-Fi $139.94, bundle $599,
 soda $90.72, costs as of 6/24/26). Advisors: Lori Judd (Prestige), Dawn
 Turner (Turner Travel), Brent Beasley (Cruise Planners, 561-777-9911).
 
-Remaining items are marked with a dashed "✎ TBD" badge in the pages —
+Remaining items are marked with a dashed "✎ TBD" badge in the pages;
 replace them with real values, then delete the `.tbd` wrapper span.
 
 ## Pricing details (pricing.html)
-- [x] Done — $400 deposit, final payment due February 16, 2027 (on the
+- [x] Done, $400 deposit, final payment due February 16, 2027 (on the
       pricing page booking policy and in the FAQ).
 - [ ] Travel protection price (currently "Ask your advisor")
 - [ ] Note: flyer shows Breezy Balcony double total as $2,181.80 but the
-      rates docx and the math ($1,091.40 × 2) say $2,182.80 — the site uses
+      rates docx and the math ($1,091.40 × 2) say $2,182.80, the site uses
       $2,182.80. Confirm which is right.
 
 ## Past-cruise photos (index.html, Experience section)
-- [x] Done — the 8 photos from the repo's `PH Cruise/` folder are optimized
+- [x] Done, the 8 photos from the repo's `PH Cruise/` folder are optimized
       into `assets/img/past/` and wired into "The Flock In Action" with
       captions. Review the captions and photo order; to add more photos,
       copy the same `<figure class="photo-card">` markup.
@@ -35,11 +35,11 @@ replace them with real values, then delete the `.tbd` wrapper span.
 
 ## Other things to check before going live
 - [ ] Verify the sail dates, itinerary port times, and cabin fares against
-      the actual group contract before publishing — these were taken from a
+      the actual group contract before publishing, these were taken from a
       design mockup, not a confirmed booking document.
 - [ ] Replace the Facebook `href="#"` links in the footer of every page with
       the real social URL.
-- [x] Done — the contact form is now an embedded GoHighLevel form
+- [x] Done, the contact form is now an embedded GoHighLevel form
       (form ID ImLjJhWmxBwiiKP4kuwA); submissions go straight to your
       LeadConnector/GHL account.
 - [ ] Confirm rights/permission to use Margaritaville at Sea's ship and

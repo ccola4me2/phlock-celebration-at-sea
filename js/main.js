@@ -39,7 +39,7 @@ document.querySelectorAll('.faq-item').forEach((item) => {
   });
 });
 
-// Photo lightbox — click any gallery photo to enlarge
+// Photo lightbox: click any gallery photo to enlarge
 // (only photo-cards that actually contain an image; placeholder cards are skipped)
 const photoCards = Array.from(document.querySelectorAll('.photo-card')).filter((c) => c.querySelector('img'));
 if (photoCards.length) {
