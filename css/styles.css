@@ -888,6 +888,15 @@ blockquote.quote-card {
   text-transform: uppercase;
 }
 .photo-card:has(.auction-placeholder) { cursor: default; }
+.sfc-logo {
+  width: 190px;
+  height: auto;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  border: 1px solid rgba(201, 165, 69, 0.5);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.sfc-logo:hover { transform: translateY(-3px); box-shadow: 0 14px 34px rgba(0, 0, 0, 0.4); }
 
 /* -----------------------------------------------------------
    FAQ accordion
