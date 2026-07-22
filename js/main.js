@@ -100,6 +100,19 @@ if (photoCards.length) {
   });
 }
 
+// Cruising for Change logo: replay the parrot fly-in on hover or click
+const cfcLogo = document.getElementById('cfcLogo');
+if (cfcLogo) {
+  let bob = document.getElementById('cfcParrotBob');
+  const replayParrot = () => {
+    const clone = bob.cloneNode(true);
+    bob.parentNode.replaceChild(clone, bob);
+    bob = clone;
+  };
+  cfcLogo.addEventListener('click', replayParrot);
+  cfcLogo.addEventListener('mouseenter', replayParrot);
+}
+
 // Contact form is an embedded GoHighLevel form (see contact.html).
 // Pass the first-touch attribution cookie (set by the Cloudflare Worker when
 // a visitor arrives via an alias domain) into the form as utm_source so
