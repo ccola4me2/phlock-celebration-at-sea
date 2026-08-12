@@ -915,6 +915,42 @@ blockquote.quote-card {
   text-transform: uppercase;
 }
 .photo-card:has(.auction-placeholder) { cursor: default; }
+
+/* Charity: donation impact + thank-you letter */
+.impact-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6em;
+  margin-top: var(--space-3);
+  flex-wrap: wrap;
+}
+.impact-num {
+  font-family: var(--font-display);
+  font-size: clamp(2.2rem, 5vw, 3rem);
+  font-weight: 700;
+  color: var(--gold);
+  line-height: 1;
+}
+.impact-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.letter-frame {
+  display: block;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--cream-dark);
+  box-shadow: var(--shadow-md);
+  background: var(--white);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  max-width: 460px;
+  margin: 0 auto;
+}
+.letter-frame:hover { transform: translateY(-3px); box-shadow: 0 16px 40px rgba(6, 15, 28, 0.28); }
+.letter-frame img { width: 100%; height: auto; display: block; }
 .sfc-logo {
   width: 190px;
   height: auto;
