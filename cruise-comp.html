@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Privacy Policy | International Parrothead Day Cruise 2027</title>
-<meta name="description" content="Privacy policy and disclaimers for the 2027 International Parrothead Day Cruise website.">
+<title>Cruise Comparison | International Parrothead Day Cruise 2027</title>
+<meta name="description" content="Compare Royal Caribbean and Norwegian cruise ships side by side, then let your Parrothead travel advisors book any sailing for you.">
 <link rel="icon" type="image/png" href="assets/img/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -32,7 +32,7 @@
       <a href="index.html#itinerary">Itinerary</a>
       <a href="index.html#ship">The Ship</a>
       <a href="pricing.html">Cabins &amp; Pricing</a>
-      <a href="cruise-comp.html">Cruise Comparison</a>
+      <a href="cruise-comp.html" aria-current="page">Cruise Comparison</a>
       <a href="charity.html">Cruising for Change</a>
       <a href="faq.html">FAQ</a>
       <a href="contact.html">Contact</a>
@@ -45,53 +45,67 @@
 
   <section class="page-hero">
     <div class="container">
-      <span class="eyebrow">Legal</span>
-      <h1>Privacy Policy</h1>
-      <p>Last updated: <span class="tbd">Date TBD</span></p>
+      <span class="eyebrow">Cruise Comparison</span>
+      <h1>Compare Cruise Ships</h1>
+      <p>Not sure which ship fits your next getaway? Compare Royal Caribbean and Norwegian ships side by side, then let your Parrothead travel advisors book the sailing that is right for you.</p>
     </div>
   </section>
 
   <section>
-    <div class="container prose">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Plan Your Next Voyage</span>
+        <h2>Pick Ships to Compare</h2>
+        <p class="tagline">Filter, choose up to three, and see them head to head</p>
+      </div>
 
-      <p>Prestige Travel Vacations LLC and Turner Travel ("we," "us," or "our") respect your privacy. This policy explains what information we collect through this website and how it is used.</p>
+      <div id="cruiseComp">
+        <div id="ccStatus" class="cc-status">Loading ships&hellip;</div>
 
-      <h2>Information We Collect</h2>
-      <ul>
-        <li>Contact details you submit through our contact form, such as name, email, and phone number</li>
-        <li>Cabin preferences and message content you provide when inquiring about a booking</li>
-        <li>Basic browser and device information collected automatically for site performance</li>
-      </ul>
+        <div id="ccToolbar" class="cc-toolbar" hidden>
+          <div class="cc-filter-group" id="ccLineFilter" aria-label="Filter by cruise line"></div>
+          <div class="cc-filter-group" id="ccSizeFilter" aria-label="Filter by ship size"></div>
+          <input type="search" id="ccSearch" class="cc-search" placeholder="Search ships&hellip;" aria-label="Search ships by name">
+          <span class="cc-count" id="ccCount"></span>
+        </div>
 
-      <h2>How We Use Your Information</h2>
-      <ul>
-        <li>To respond to inquiries and provide quotes for the International Parrothead Day Cruise</li>
-        <li>To process bookings and communicate updates about your reservation</li>
-        <li>To improve our website and services</li>
-      </ul>
+        <div id="ccGrid" class="cc-grid"></div>
 
-      <h2>Sharing of Information</h2>
-      <p>We do not sell your personal information. We may share necessary booking details with the cruise line and related travel partners solely to fulfill your reservation.</p>
+        <div id="ccTray" class="cc-tray" aria-live="polite">
+          <span class="cc-tray-label">Comparing</span>
+          <div class="cc-tray-slots" id="ccTraySlots"></div>
+          <button type="button" class="cc-tray-clear" id="ccTrayClear">Clear</button>
+          <button type="button" class="btn btn-gold" id="ccCompareBtn" disabled>Select 2+ to compare</button>
+        </div>
+      </div>
+    </div>
+  </section>
 
-      <h2>Your Choices</h2>
-      <p>You may contact us at any time to request access to, correction of, or deletion of your personal information by reaching out through our <a href="contact.html" style="text-decoration:underline;">Contact page</a>.</p>
-
-      <h2 id="disclaimer">Entertainment &amp; Itinerary Disclaimer</h2>
-      <p>Onboard entertainment, performers, activities, ports of call, and schedules described on this website are based on current plans and are subject to change without notice by the cruise line or event organizers. Fares shown are per person based on double occupancy and subject to availability; rates include tax &amp; port charges, and gratuities are additional. We recommend confirming details with your travel advisor prior to booking.</p>
-
-      <h2>Trademarks &amp; Imagery</h2>
-      <p>Margaritaville, Margaritaville at Sea, and related marks are the property of their respective owners. This website is operated by independent travel advisors and is not owned by or affiliated with Margaritaville Holdings or the cruise line. Ship and venue renderings are courtesy of Margaritaville at Sea.</p>
-
-      <h2>Florida Seller of Travel</h2>
-      <p>Prestige Travel Vacations LLC is registered as a Florida Seller of Travel, Registration #ST15578. Registration as a seller of travel does not constitute approval by the State of Florida.</p>
-
-      <h2>Contact Us</h2>
-      <p>Questions about this policy can be directed to <a href="mailto:PTVacations@aol.com">PTVacations@aol.com</a> or by phone at <a href="tel:+18132307879">(813) 230-7879</a>.</p>
-
+  <section class="bg-cream-dark">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">One Crew, Every Ship</span>
+        <h2>Book Any Line With Us</h2>
+        <p>Loved a ship you compared here? Your Parrothead travel advisors book every major cruise line, so you get the same friendly, Fins Up service whether you are sailing with us in 2027 or planning a getaway in between.</p>
+      </div>
+      <div style="text-align:center;">
+        <a href="contact.html" class="btn btn-gold">Talk to an Advisor</a>
+      </div>
     </div>
   </section>
 
 </main>
+
+<!-- Comparison overlay -->
+<div class="cc-modal" id="ccModal" role="dialog" aria-modal="true" aria-label="Ship comparison">
+  <div class="cc-modal-inner">
+    <div class="cc-modal-head">
+      <h3>Ship Comparison</h3>
+      <button type="button" class="cc-modal-close" id="ccModalClose" aria-label="Close comparison">&times;</button>
+    </div>
+    <div id="ccModalBody"></div>
+  </div>
+</div>
 
 <footer class="site-footer">
   <div class="container">
@@ -138,11 +152,12 @@
     </div>
     <div class="footer-bottom">
       <span>&copy; 2026&ndash;2027 Prestige Travel Vacations LLC &amp; Turner Travel. All rights reserved.</span>
-      <span>Not affiliated with Margaritaville Holdings. Renderings courtesy of Margaritaville at Sea.</span>
+      <span>Not affiliated with Margaritaville Holdings. Ship data &amp; images courtesy of Widgety. Renderings courtesy of Margaritaville at Sea.</span>
     </div>
   </div>
 </footer>
 
 <script src="js/main.js"></script>
+<script src="js/cruise-comp.js"></script>
 </body>
 </html>
