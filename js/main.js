@@ -131,3 +131,44 @@ if (ghlFrame) {
     } catch (e) { /* leave the form as-is */ }
   }
 }
+
+// Countdown to departure: June 26, 2027, 4:00 PM Eastern (EDT, UTC-4).
+// The fixed -04:00 offset makes the target an absolute instant, so the clock
+// is correct for every visitor regardless of their local timezone.
+const cdClock = document.getElementById('countdownClock');
+if (cdClock) {
+  const target = new Date('2027-06-26T16:00:00-04:00').getTime();
+  const numEls = {
+    days: cdClock.querySelector('[data-days]'),
+    hours: cdClock.querySelector('[data-hours]'),
+    mins: cdClock.querySelector('[data-mins]'),
+    secs: cdClock.querySelector('[data-secs]'),
+  };
+  const band = document.getElementById('countdown');
+  const sailingMsg = band ? band.querySelector('.countdown-sailing') : null;
+  const pad = (n, len) => String(n).padStart(len, '0');
+  let timer;
+
+  const tick = () => {
+    let diff = Math.floor((target - Date.now()) / 1000);
+    if (diff <= 0) {
+      // Departure reached: swap the clock for a celebratory message.
+      numEls.days.textContent = '000';
+      numEls.hours.textContent = numEls.mins.textContent = numEls.secs.textContent = '00';
+      if (sailingMsg && band && !band.classList.contains('is-sailing')) {
+        band.classList.add('is-sailing');
+        cdClock.setAttribute('hidden', '');
+        sailingMsg.removeAttribute('hidden');
+      }
+      if (timer) clearInterval(timer);
+      return;
+    }
+    numEls.days.textContent = pad(Math.floor(diff / 86400), 3);
+    numEls.hours.textContent = pad(Math.floor((diff % 86400) / 3600), 2);
+    numEls.mins.textContent = pad(Math.floor((diff % 3600) / 60), 2);
+    numEls.secs.textContent = pad(diff % 60, 2);
+  };
+
+  tick();
+  timer = setInterval(tick, 1000);
+}
