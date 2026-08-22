@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://parrotheadscruise.com/sitemap.xml
