@@ -172,3 +172,15 @@ if (cdClock) {
   tick();
   timer = setInterval(tick, 1000);
 }
+
+// Sticky mobile CTA: tuck it away once the footer is in view so it does not
+// stack on top of the footer's own contact/CTA content.
+const stickyCta = document.querySelector('.sticky-cta');
+const siteFooter = document.querySelector('.site-footer');
+if (stickyCta && siteFooter && 'IntersectionObserver' in window) {
+  const io = new IntersectionObserver(
+    (entries) => stickyCta.classList.toggle('is-hidden', entries[0].isIntersecting),
+    { rootMargin: '0px' }
+  );
+  io.observe(siteFooter);
+}
