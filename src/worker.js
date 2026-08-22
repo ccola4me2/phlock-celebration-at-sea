@@ -20,6 +20,15 @@ export default {
       return Response.redirect(`https://${MAIN_HOST}${url.pathname}${url.search}`, 301);
     }
 
+    // Google Search Console verification. Served directly with a 200 so it is
+    // not caught by the static-assets ".html -> clean URL" redirect, which
+    // would otherwise cause Google's file check to fail.
+    if (url.pathname === '/google705e17e34b2526c5.html') {
+      return new Response('google-site-verification: google705e17e34b2526c5.html', {
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      });
+    }
+
     const response = await env.ASSETS.fetch(request);
 
     // First-touch attribution: remember where the visitor originally came
