@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard | Parrothead Day Cruise Admin</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+<div class="a-bar">
+  <a class="a-brand" href="/admin">Parrothead Admin <span>· PHC</span></a>
+  <nav class="a-nav">
+    <a href="/admin">Dashboard</a>
+    <a href="/admin/links">Link Builder</a>
+    <a href="/admin/reports">Reports</a>
+  </nav>
+  <div class="a-who" id="aWho"></div>
+</div>
+
+<div class="a-wrap">
+  <h1 class="a-h1" id="greeting">Welcome</h1>
+  <p class="a-lede">Your link builder and traffic reporting for parrotheadscruise.com.</p>
+
+  <div class="a-grid a-grid-3" style="margin-bottom:1.6rem;">
+    <div class="a-stat"><div class="num" id="statVisits">—</div><div class="lbl">Visits (90 days)</div></div>
+    <div class="a-stat"><div class="num" id="statTagged">—</div><div class="lbl">Tagged visits</div></div>
+    <div class="a-stat"><div class="num" id="statConv">—</div><div class="lbl">Conversions</div></div>
+  </div>
+
+  <div class="a-grid a-grid-2">
+    <a class="a-card" href="/admin/links" style="text-decoration:none;color:inherit;display:block;">
+      <h2 style="margin-top:0;">🔗 Link Builder</h2>
+      <p style="color:var(--a-soft);">Create trackable links for Facebook, email, or texts, tagged to you so you can see how your sharing performs.</p>
+      <span class="a-btn a-btn-ghost">Build a link →</span>
+    </a>
+    <a class="a-card" href="/admin/reports" style="text-decoration:none;color:inherit;display:block;">
+      <h2 style="margin-top:0;">📊 Reports</h2>
+      <p style="color:var(--a-soft);">See visits by advisor, source, and campaign over any date range, plus conversions.</p>
+      <span class="a-btn a-btn-ghost">View reports →</span>
+    </a>
+  </div>
+</div>
+
+<script src="/js/admin.js"></script>
+<script>
+(async function () {
+  var user = await window.PHCAdmin;
+  if (!user) return;
+  document.getElementById('greeting').textContent =
+    'Welcome, ' + (user.name ? user.name.split(' ')[0] : user.email);
+  try {
+    var res = await fetch('/api/admin/report');
+    if (res.ok) {
+      var d = await res.json();
+      document.getElementById('statVisits').textContent = (d.visits || 0).toLocaleString();
+      document.getElementById('statTagged').textContent = (d.tagged || 0).toLocaleString();
+      document.getElementById('statConv').textContent = (d.conversions || 0).toLocaleString();
+    }
+  } catch (e) {}
+})();
+</script>
+</body>
+</html>

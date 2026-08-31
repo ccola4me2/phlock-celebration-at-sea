@@ -9,5 +9,12 @@
     "directory": ".",
     "binding": "ASSETS",
     "run_worker_first": true
-  }
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "phc",
+      "database_id": "9e1af854-0dd2-480e-8040-3796d0468c5e"
+    }
+  ]
 }

@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Link Builder | Parrothead Day Cruise Admin</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+<div class="a-bar">
+  <a class="a-brand" href="/admin">Parrothead Admin <span>· PHC</span></a>
+  <nav class="a-nav">
+    <a href="/admin">Dashboard</a>
+    <a href="/admin/links">Link Builder</a>
+    <a href="/admin/reports">Reports</a>
+  </nav>
+  <div class="a-who" id="aWho"></div>
+</div>
+
+<div class="a-wrap">
+  <h1 class="a-h1">Link Builder</h1>
+  <p class="a-lede">Build a trackable link tagged to you. Share it on Facebook, in email, or by text, and your visits and conversions show up in Reports.</p>
+
+  <div class="a-grid a-grid-2">
+    <div class="a-card">
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1.1rem;">
+        <button class="a-btn a-btn-ghost" data-preset="facebook" type="button">📘 Facebook</button>
+        <button class="a-btn a-btn-ghost" data-preset="email" type="button">✉️ Email</button>
+        <button class="a-btn a-btn-ghost" data-preset="text" type="button">💬 Text / SMS</button>
+        <button class="a-btn a-btn-ghost" data-preset="qr" type="button">🔳 QR / Print</button>
+      </div>
+
+      <label class="a-field"><span>Destination page</span>
+        <select class="a-input" id="page">
+          <option value="/">Home</option>
+          <option value="/pricing">Cabins &amp; Pricing</option>
+          <option value="/faq">FAQ</option>
+          <option value="/charity">Cruising for Change</option>
+          <option value="/team">Travel Advisors</option>
+          <option value="/contact">Contact</option>
+        </select>
+      </label>
+
+      <label class="a-field"><span>Your tag (who's sharing)</span>
+        <input class="a-input" id="content" placeholder="e.g. lori">
+      </label>
+
+      <label class="a-field"><span>Source (where you're posting it)</span>
+        <input class="a-input" id="source" list="sourceList" placeholder="facebook, email, text, flyer…">
+        <datalist id="sourceList">
+          <option value="facebook"></option><option value="instagram"></option>
+          <option value="email"></option><option value="text"></option>
+          <option value="flyer"></option><option value="newsletter"></option>
+        </datalist>
+      </label>
+
+      <label class="a-field"><span>Medium (type of link)</span>
+        <input class="a-input" id="medium" list="mediumList" placeholder="social, email, sms, print…">
+        <datalist id="mediumList">
+          <option value="social"></option><option value="email"></option>
+          <option value="sms"></option><option value="print"></option><option value="referral"></option>
+        </datalist>
+      </label>
+
+      <label class="a-field"><span>Campaign (optional)</span>
+        <input class="a-input" id="campaign" placeholder="e.g. spring-push, early-bird">
+      </label>
+    </div>
+
+    <div class="a-card">
+      <h2 style="margin-top:0;">Your trackable link</h2>
+      <div class="a-out">
+        <input class="a-input" id="output" readonly>
+        <button class="a-btn" id="copyBtn" type="button">Copy</button>
+      </div>
+      <div class="a-msg ok" id="copyMsg" hidden>Copied to clipboard ✓</div>
+      <p class="a-hint">Paste this anywhere you'd normally share the site. It goes to the same page — the tracking tags are invisible to visitors and just tell Reports who sent them.</p>
+      <hr style="border:none;border-top:1px solid var(--a-line);margin:1.2rem 0;">
+      <h3 style="margin:0 0 0.4rem;font-size:0.95rem;">Preview</h3>
+      <p class="a-hint" id="preview" style="word-break:break-all;"></p>
+    </div>
+  </div>
+</div>
+
+<script src="/js/admin.js"></script>
+<script>
+(async function () {
+  var user = await window.PHCAdmin;
+  if (!user) return;
+  var $ = function (id) { return document.getElementById(id); };
+  var BASE = 'https://parrotheadscruise.com';
+
+  function slug(s) { return String(s || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+
+  // Prefill the advisor tag from the signed-in name (first name).
+  if (user.name) $('content').value = slug(user.name.split(' ')[0]);
+  else $('content').value = slug((user.email || '').split('@')[0]);
+
+  function build() {
+    var url = new URL(BASE + $('page').value);
+    var map = { utm_source: $('source').value, utm_medium: $('medium').value, utm_campaign: $('campaign').value, utm_content: $('content').value };
+    ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content'].forEach(function (k) {
+      var v = slug(map[k]);
+      if (v) url.searchParams.set(k, v);
+    });
+    var str = url.toString();
+    $('output').value = str;
+    $('preview').textContent = str;
+  }
+
+  ['page', 'content', 'source', 'medium', 'campaign'].forEach(function (id) {
+    $(id).addEventListener('input', build);
+    $(id).addEventListener('change', build);
+  });
+
+  var PRESETS = {
+    facebook: { source: 'facebook', medium: 'social' },
+    email: { source: 'email', medium: 'email' },
+    text: { source: 'text', medium: 'sms' },
+    qr: { source: 'flyer', medium: 'print' },
+  };
+  document.querySelectorAll('[data-preset]').forEach(function (b) {
+    b.onclick = function () {
+      var p = PRESETS[b.getAttribute('data-preset')];
+      $('source').value = p.source; $('medium').value = p.medium; build();
+    };
+  });
+
+  $('copyBtn').onclick = async function () {
+    try {
+      await navigator.clipboard.writeText($('output').value);
+      var m = $('copyMsg'); m.hidden = false; setTimeout(function () { m.hidden = true; }, 1800);
+    } catch (e) {
+      $('output').select(); document.execCommand('copy');
+    }
+  };
+
+  build();
+})();
+</script>
+</body>
+</html>

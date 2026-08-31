@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Sign In | Parrothead Day Cruise</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+<div class="a-login-wrap">
+  <div class="a-login">
+    <div class="a-logo">PARROTHEAD DAY CRUISE · ADMIN</div>
+
+    <!-- Sign in -->
+    <form class="a-card" id="signinForm">
+      <label class="a-field"><span>Email</span>
+        <input class="a-input" type="email" id="si-email" autocomplete="username" required>
+      </label>
+      <label class="a-field"><span>Password</span>
+        <input class="a-input" type="password" id="si-password" autocomplete="current-password" required>
+      </label>
+      <button class="a-btn" type="submit" style="width:100%;">Sign In</button>
+      <div class="a-msg err" id="si-msg" hidden></div>
+      <p class="a-hint" style="margin-top:1rem;">First time here?
+        <button type="button" class="a-link-toggle" id="showSetup">Set your password</button>
+      </p>
+    </form>
+
+    <!-- First-time set password (claim) -->
+    <form class="a-card" id="setupForm" hidden>
+      <p class="a-hint" style="margin-top:0;">Use the email on file and the setup code shared with the advisors.</p>
+      <label class="a-field"><span>Email</span>
+        <input class="a-input" type="email" id="su-email" autocomplete="username" required>
+      </label>
+      <label class="a-field"><span>Your Name</span>
+        <input class="a-input" type="text" id="su-name" autocomplete="name" placeholder="e.g. Lori Judd">
+      </label>
+      <label class="a-field"><span>Setup Code</span>
+        <input class="a-input" type="text" id="su-code" autocomplete="off">
+      </label>
+      <label class="a-field"><span>New Password (min 8 characters)</span>
+        <input class="a-input" type="password" id="su-password" autocomplete="new-password" required>
+      </label>
+      <button class="a-btn" type="submit" style="width:100%;">Set Password &amp; Sign In</button>
+      <div class="a-msg err" id="su-msg" hidden></div>
+      <p class="a-hint" style="margin-top:1rem;">Already set up?
+        <button type="button" class="a-link-toggle" id="showSignin">Sign in</button>
+      </p>
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  var params = new URLSearchParams(location.search);
+  var next = params.get('next');
+  if (!next || next[0] !== '/') next = '/admin';
+
+  var $ = function (id) { return document.getElementById(id); };
+  function showMsg(el, text) { el.textContent = text; el.hidden = false; }
+  function hide(el) { el.hidden = true; }
+
+  $('showSetup').onclick = function () { $('signinForm').hidden = true; $('setupForm').hidden = false; };
+  $('showSignin').onclick = function () { $('setupForm').hidden = true; $('signinForm').hidden = false; };
+
+  var ERR = {
+    invalid_credentials: 'That email or password is not correct.',
+    account_disabled: 'This account is not active. Contact the site admin.',
+    not_authorized: 'That email is not on the admin list.',
+    weak_password: 'Password must be at least 8 characters.',
+    bad_setup_code: 'That setup code is not correct.',
+    already_claimed: 'This account already has a password. Use Sign In.',
+  };
+  function friendly(code) { return ERR[code] || 'Something went wrong. Please try again.'; }
+
+  $('signinForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    hide($('si-msg'));
+    try {
+      var res = await fetch('/api/auth/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: $('si-email').value, password: $('si-password').value }),
+      });
+      var data = await res.json();
+      if (res.ok) { location.href = next; return; }
+      showMsg($('si-msg'), friendly(data.error));
+    } catch (err) { showMsg($('si-msg'), 'Network error. Please try again.'); }
+  });
+
+  $('setupForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    hide($('su-msg'));
+    try {
+      var res = await fetch('/api/auth/claim', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: $('su-email').value, name: $('su-name').value,
+          code: $('su-code').value, password: $('su-password').value,
+        }),
+      });
+      var data = await res.json();
+      if (res.ok) { location.href = '/admin'; return; }
+      showMsg($('su-msg'), friendly(data.error));
+    } catch (err) { showMsg($('su-msg'), 'Network error. Please try again.'); }
+  });
+})();
+</script>
+</body>
+</html>
