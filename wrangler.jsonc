@@ -16,5 +16,9 @@
       "database_name": "phc",
       "database_id": "9e1af854-0dd2-480e-8040-3796d0468c5e"
     }
-  ]
+  ],
+  "vars": {
+    "ADMIN_EMAILS": "PTVacations@aol.com,dawn.turnertravel@gmail.com,Brent.beasley@cruiseplanners.com",
+    "SESSION_TTL_DAYS": "30"
+  }
 }
