@@ -106,7 +106,12 @@ export default {
     // First-touch visit logging: one row per new visitor on an HTML pageview.
     const ct = response.headers.get('Content-Type') || '';
     const cookies = parseCookies(request);
-    if (ct.includes('text/html') && env.DB && !cookies[ATTR_COOKIE]) {
+    if (
+      ct.includes('text/html') &&
+      env.DB &&
+      !cookies[ATTR_COOKIE] &&
+      !path.startsWith('/admin')
+    ) {
       const q = url.searchParams;
       const attr = {
         advisor: clip(q.get('utm_content') || q.get('adv'), 60),

@@ -45,7 +45,19 @@ export async function handleAdminApi(request, env, url) {
   if (path === '/api/admin/report' && request.method === 'GET') {
     return handleReport(request, env, url);
   }
+  if (path === '/api/admin/clear' && request.method === 'POST') {
+    return handleClear(env);
+  }
   return json({ error: 'not_found' }, 404);
+}
+
+// Wipe all tracking data (visits + conversions). Admin-only; used to reset
+// after testing. Accounts/sessions are untouched.
+async function handleClear(env) {
+  await ensureSchema(env.DB);
+  await env.DB.prepare('DELETE FROM visits').run();
+  await env.DB.prepare('DELETE FROM conversions').run();
+  return json({ ok: true });
 }
 
 function parseDate(str, endOfDay = false) {
@@ -76,21 +88,32 @@ async function handleReport(request, env, url) {
   const to = parseDate(q.get('to'), true) ?? Date.now();
   const range = [from, to];
 
-  const [visitsTotal, tagged, byAdvisor, bySource, byCampaign, byMedium, byLanding, convTotal, convByAdvisor] =
-    await Promise.all([
-      db.prepare('SELECT COUNT(*) n FROM visits WHERE created_at BETWEEN ? AND ?').bind(...range).first(),
-      db
-        .prepare("SELECT COUNT(*) n FROM visits WHERE created_at BETWEEN ? AND ? AND advisor <> ''")
-        .bind(...range)
-        .first(),
-      groupBy(db, 'advisor', 'visits', range),
-      groupBy(db, 'source', 'visits', range),
-      groupBy(db, 'campaign', 'visits', range),
-      groupBy(db, 'medium', 'visits', range),
-      groupBy(db, 'landing', 'visits', range),
-      db.prepare('SELECT COUNT(*) n FROM conversions WHERE created_at BETWEEN ? AND ?').bind(...range).first(),
-      groupBy(db, 'advisor', 'conversions', range),
-    ]);
+  const [
+    visitsTotal,
+    tagged,
+    byAdvisor,
+    bySource,
+    byCampaign,
+    byMedium,
+    byReferrer,
+    byLanding,
+    convTotal,
+    convByAdvisor,
+  ] = await Promise.all([
+    db.prepare('SELECT COUNT(*) n FROM visits WHERE created_at BETWEEN ? AND ?').bind(...range).first(),
+    db
+      .prepare("SELECT COUNT(*) n FROM visits WHERE created_at BETWEEN ? AND ? AND advisor <> ''")
+      .bind(...range)
+      .first(),
+    groupBy(db, 'advisor', 'visits', range),
+    groupBy(db, 'source', 'visits', range),
+    groupBy(db, 'campaign', 'visits', range),
+    groupBy(db, 'medium', 'visits', range),
+    groupBy(db, 'referrer', 'visits', range),
+    groupBy(db, 'landing', 'visits', range),
+    db.prepare('SELECT COUNT(*) n FROM conversions WHERE created_at BETWEEN ? AND ?').bind(...range).first(),
+    groupBy(db, 'advisor', 'conversions', range),
+  ]);
 
   const byDay = (
     await db
@@ -111,6 +134,7 @@ async function handleReport(request, env, url) {
     bySource,
     byCampaign,
     byMedium,
+    byReferrer,
     byLanding,
     byDay,
     conversionsByAdvisor: convByAdvisor,

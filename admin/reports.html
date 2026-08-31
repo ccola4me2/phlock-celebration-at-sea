@@ -49,6 +49,12 @@
 
   <div class="a-grid a-grid-2" style="margin-top:1.2rem;">
     <div>
+      <h2 class="a-section-title">Where They Came From</h2>
+      <div class="a-card"><table class="a-table" id="tReferrer"><thead><tr><th>Referring site</th><th class="num">Visits</th></tr></thead><tbody></tbody></table>
+        <p class="a-hint" style="margin:0.6rem 0 0;">"(none)" = typed the address, a bookmark, or a link with no referrer.</p>
+      </div>
+    </div>
+    <div>
       <h2 class="a-section-title">By Source</h2>
       <div class="a-card"><table class="a-table" id="tSource"><thead><tr><th>Source</th><th class="num">Visits</th></tr></thead><tbody></tbody></table></div>
     </div>
@@ -67,6 +73,12 @@
   </div>
 
   <p class="a-msg" id="reportMsg" hidden></p>
+
+  <div style="margin-top:2.5rem;padding-top:1.2rem;border-top:1px solid var(--a-line);display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+    <button class="a-btn a-btn-ghost" id="clearBtn" type="button" style="color:var(--a-red);border-color:var(--a-red);">Clear all tracking data</button>
+    <span class="a-hint" style="margin:0;">Permanently deletes all visits and conversions. Logins are not affected. Use to reset after testing.</span>
+    <span class="a-msg ok" id="clearMsg" hidden>Cleared ✓</span>
+  </div>
 </div>
 
 <script src="/js/admin.js"></script>
@@ -115,6 +127,7 @@
       (d.conversionsByAdvisor || []).forEach(function (r) { convMap[r.label] = r.count; });
       var adv = (d.byAdvisor || []).map(function (r) { return { label: r.label, count: r.count, conv: convMap[r.label] || 0 }; });
       rows('#tAdvisor', adv, 3);
+      rows('#tReferrer', d.byReferrer, 2);
       rows('#tSource', d.bySource, 2);
       rows('#tCampaign', d.byCampaign, 2);
       rows('#tMedium', d.byMedium, 2);
@@ -125,6 +138,19 @@
       $('reportMsg').hidden = false;
     }
   }
+
+  $('clearBtn').onclick = async function () {
+    if (!confirm('Delete ALL tracking data (visits and conversions)? This cannot be undone. Logins are not affected.')) return;
+    try {
+      var res = await fetch('/api/admin/clear', { method: 'POST' });
+      if (!res.ok) throw new Error('http ' + res.status);
+      var m = $('clearMsg'); m.hidden = false; setTimeout(function () { m.hidden = true; }, 2500);
+      load();
+    } catch (e) {
+      $('reportMsg').textContent = 'Could not clear the data. Please try again.';
+      $('reportMsg').className = 'a-msg err'; $('reportMsg').hidden = false;
+    }
+  };
 
   $('apply').onclick = load;
   document.querySelectorAll('[data-days]').forEach(function (b) {
