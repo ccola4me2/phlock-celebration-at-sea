@@ -74,9 +74,18 @@
 
   <p class="a-msg" id="reportMsg" hidden></p>
 
-  <div style="margin-top:2.5rem;padding-top:1.2rem;border-top:1px solid var(--a-line);display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
-    <button class="a-btn a-btn-ghost" id="clearBtn" type="button" style="color:var(--a-red);border-color:var(--a-red);">Clear all tracking data</button>
-    <span class="a-hint" style="margin:0;">Permanently deletes all visits and conversions. Logins are not affected. Use to reset after testing.</span>
+  <div style="margin-top:2.5rem;padding-top:1.2rem;border-top:1px solid var(--a-line);">
+    <button class="a-btn a-btn-ghost" id="clearBtn" type="button" style="color:var(--a-red);border-color:var(--a-red);">Clear all tracking data…</button>
+    <span class="a-hint" style="margin-left:0.8rem;">Resets visit and conversion counts. Logins and GHL leads are not affected.</span>
+    <div id="clearPanel" hidden style="margin-top:1rem;max-width:540px;border:1px solid var(--a-red);border-radius:var(--a-radius);padding:1.1rem;background:#fff;">
+      <p style="margin:0 0 0.5rem;font-weight:700;color:var(--a-red);">Permanently erase all visits and conversions?</p>
+      <p class="a-hint" style="margin:0 0 0.9rem;">This cannot be undone. Type <strong>DELETE</strong> to confirm.</p>
+      <div style="display:flex;gap:0.6rem;flex-wrap:wrap;align-items:center;">
+        <input class="a-input" id="clearConfirm" placeholder="Type DELETE" style="max-width:200px;" autocomplete="off" autocapitalize="characters">
+        <button class="a-btn" id="clearGo" type="button" disabled style="background:var(--a-red);color:#fff;">Permanently delete</button>
+        <button class="a-btn a-btn-ghost" id="clearCancel" type="button">Cancel</button>
+      </div>
+    </div>
     <span class="a-msg ok" id="clearMsg" hidden>Cleared ✓</span>
   </div>
 </div>
@@ -139,16 +148,26 @@
     }
   }
 
-  $('clearBtn').onclick = async function () {
-    if (!confirm('Delete ALL tracking data (visits and conversions)? This cannot be undone. Logins are not affected.')) return;
+  var clearPanel = $('clearPanel'), clearConfirm = $('clearConfirm'), clearGo = $('clearGo');
+  function confirmed() { return clearConfirm.value.trim().toUpperCase() === 'DELETE'; }
+  $('clearBtn').onclick = function () {
+    clearPanel.hidden = false; clearConfirm.value = ''; clearGo.disabled = true; clearConfirm.focus();
+  };
+  $('clearCancel').onclick = function () { clearPanel.hidden = true; };
+  clearConfirm.addEventListener('input', function () { clearGo.disabled = !confirmed(); });
+  clearGo.onclick = async function () {
+    if (!confirmed()) return;
+    clearGo.disabled = true;
     try {
       var res = await fetch('/api/admin/clear', { method: 'POST' });
       if (!res.ok) throw new Error('http ' + res.status);
+      clearPanel.hidden = true;
       var m = $('clearMsg'); m.hidden = false; setTimeout(function () { m.hidden = true; }, 2500);
       load();
     } catch (e) {
       $('reportMsg').textContent = 'Could not clear the data. Please try again.';
       $('reportMsg').className = 'a-msg err'; $('reportMsg').hidden = false;
+      clearGo.disabled = false;
     }
   };
 
