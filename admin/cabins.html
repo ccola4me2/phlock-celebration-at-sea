@@ -231,7 +231,10 @@
     var out = [];
     text.split(/\r?\n/).forEach(function (line) {
       if (!line.trim()) return;
-      var cells = line.indexOf('\t') > -1 ? line.split('\t') : parseCsvLine(line);
+      var cells;
+      if (line.indexOf('\t') > -1) cells = line.split('\t');
+      else if (line.indexOf('|') > -1) cells = line.split('|');
+      else cells = parseCsvLine(line);
       // Skip a header row.
       if (/cabin\s*#|cabin_number/i.test(cells[0]) && /type/i.test(cells[1] || '')) return;
       out.push({
