@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cabins | Parrothead Day Cruise Admin</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+<div class="a-bar">
+  <a class="a-brand" href="/admin">Parrothead Admin <span>· PHC</span></a>
+  <nav class="a-nav">
+    <a href="/admin">Dashboard</a>
+    <a href="/admin/leads">Leads</a>
+    <a href="/admin/cabins">Cabins</a>
+    <a href="/admin/links">Link Builder</a>
+    <a href="/admin/reports">Reports</a>
+  </nav>
+  <div class="a-who" id="aWho"></div>
+</div>
+
+<div class="a-wrap">
+  <h1 class="a-h1">Cabin Assignments <span id="cabinCount" style="font-size:0.9rem;color:var(--a-soft);font-weight:400;"></span></h1>
+  <p class="a-lede">Your group manifest — who's in which cabin. This is the source of truth (replaces the shared doc).</p>
+
+  <div class="a-card" style="margin-bottom:1.3rem;">
+    <div style="display:flex;gap:1rem;align-items:flex-end;flex-wrap:wrap;">
+      <label class="a-field" style="margin:0;"><span>Drifter</span>
+        <select class="a-input" id="fDrifter" style="min-width:140px;">
+          <option value="">All</option><option value="Current">Current</option><option value="New">New</option>
+        </select>
+      </label>
+      <label class="a-field" style="margin:0;"><span>Cabin type</span>
+        <select class="a-input" id="fType" style="min-width:140px;"><option value="">All</option></select>
+      </label>
+      <label class="a-field" style="margin:0;flex:1;min-width:160px;"><span>Search name / res # / cabin #</span>
+        <input class="a-input" id="fSearch" type="search" placeholder="Search&hellip;">
+      </label>
+      <button class="a-btn" id="addBtn" type="button">+ Add Cabin</button>
+      <button class="a-btn a-btn-ghost" id="importBtn" type="button">Import</button>
+      <a class="a-btn a-btn-ghost" id="csvBtn" href="/api/admin/cabins?format=csv" download>Export CSV</a>
+    </div>
+  </div>
+
+  <div class="a-card" style="overflow-x:auto;">
+    <table class="a-table" id="cabinsTable">
+      <thead><tr>
+        <th>Cabin&nbsp;#</th><th>Type</th><th>Name(s)</th><th>Res&nbsp;#</th><th>Drifter</th><th>Notes</th><th></th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+    <p class="a-hint" id="cabinsEmpty" hidden style="padding:1rem;">No cabins yet. Add one, or use <strong>Import</strong> to paste your list.</p>
+  </div>
+  <p class="a-msg" id="pageMsg" hidden></p>
+</div>
+
+<!-- Add / Edit modal -->
+<div id="editModal" style="display:none;position:fixed;inset:0;z-index:100;background:rgba(6,15,28,0.6);align-items:flex-start;justify-content:center;overflow-y:auto;padding:2rem 1rem;">
+  <div class="a-card" style="width:100%;max-width:520px;">
+    <h2 id="editTitle" style="margin-top:0;">Add Cabin</h2>
+    <input type="hidden" id="e-id">
+    <div class="a-grid a-grid-2">
+      <label class="a-field" style="grid-column:1/-1;"><span>Name(s)</span><input class="a-input" id="e-name" placeholder="e.g. Lori Judd &amp; guest"></label>
+      <label class="a-field"><span>Cabin #</span><input class="a-input" id="e-cabin_number"></label>
+      <label class="a-field"><span>Cabin Type</span><input class="a-input" id="e-cabin_type" list="cabinTypes"></label>
+      <label class="a-field"><span>Reservation #</span><input class="a-input" id="e-res_number"></label>
+      <label class="a-field"><span>Drifter</span>
+        <select class="a-input" id="e-drifter"><option value="">—</option><option value="Current">Current</option><option value="New">New</option></select>
+      </label>
+      <label class="a-field" style="grid-column:1/-1;"><span>Notes (deposit, relationship, etc.)</span><textarea class="a-input" id="e-notes" rows="3"></textarea></label>
+    </div>
+    <div style="margin-top:1rem;display:flex;gap:0.6rem;">
+      <button class="a-btn" id="saveBtn" type="button">Save</button>
+      <button class="a-btn a-btn-ghost" id="cancelBtn" type="button">Cancel</button>
+    </div>
+  </div>
+</div>
+<datalist id="cabinTypes">
+  <option value="Interior"></option><option value="Ocean View"></option><option value="Balcony"></option>
+  <option value="Wake Balcony"></option><option value="Junior Suite"></option><option value="Grand Suite"></option>
+  <option value="Master Navigator"></option>
+</datalist>
+
+<!-- Import modal -->
+<div id="importModal" style="display:none;position:fixed;inset:0;z-index:100;background:rgba(6,15,28,0.6);align-items:flex-start;justify-content:center;overflow-y:auto;padding:2rem 1rem;">
+  <div class="a-card" style="width:100%;max-width:640px;">
+    <h2 style="margin-top:0;">Import Cabins</h2>
+    <p class="a-hint">Paste rows below — one cabin per line, columns separated by <strong>tabs</strong> (paste straight from a spreadsheet) or commas, in this order:</p>
+    <p class="a-hint" style="font-family:ui-monospace,monospace;">Cabin #&nbsp; Type&nbsp; Name(s)&nbsp; Res #&nbsp; Drifter&nbsp; Notes</p>
+    <textarea class="a-input" id="importText" rows="10" placeholder="7325&#9;Grand Suite&#9;Lori Judd &amp; guest&#9;54378629&#9;Current&#9;"></textarea>
+    <label style="display:flex;align-items:center;gap:0.5rem;margin:0.8rem 0;font-size:0.9rem;">
+      <input type="checkbox" id="importReplace"> Replace all existing cabins (otherwise adds to the list)
+    </label>
+    <div style="display:flex;gap:0.6rem;align-items:center;">
+      <button class="a-btn" id="importGo" type="button">Import</button>
+      <button class="a-btn a-btn-ghost" id="importCancel" type="button">Cancel</button>
+      <span class="a-msg" id="importMsg" hidden></span>
+    </div>
+  </div>
+</div>
+
+<script src="/js/admin.js"></script>
+<script>
+(async function () {
+  var user = await window.PHCAdmin;
+  if (!user) return;
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { var d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; };
+  var allCabins = [];
+
+  async function api(path, body) {
+    var res = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    return res.ok;
+  }
+
+  function render(cabins) {
+    var tb = document.querySelector('#cabinsTable tbody');
+    tb.innerHTML = '';
+    $('cabinsEmpty').hidden = cabins.length > 0;
+    $('cabinCount').textContent = cabins.length ? '· ' + cabins.length + ' cabins' : '';
+    cabins.forEach(function (c) {
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td style="white-space:nowrap;"><strong>' + esc(c.cabin_number) + '</strong></td>' +
+        '<td>' + esc(c.cabin_type) + '</td>' +
+        '<td>' + esc(c.name) + '</td>' +
+        '<td>' + esc(c.res_number) + '</td>' +
+        '<td>' + esc(c.drifter) + '</td>' +
+        '<td style="font-size:0.85rem;color:var(--a-soft);max-width:280px;">' + esc(c.notes) + '</td>' +
+        '<td style="white-space:nowrap;"><button class="a-btn a-btn-ghost" data-edit="' + c.id + '" style="padding:0.35em 0.7em;">Edit</button> ' +
+        '<button class="a-btn a-btn-ghost" data-del="' + c.id + '" style="padding:0.35em 0.7em;color:var(--a-red);border-color:var(--a-red);">×</button></td>';
+      tb.appendChild(tr);
+    });
+    tb.querySelectorAll('[data-edit]').forEach(function (b) {
+      b.onclick = function () { openEdit(cabins.find(function (x) { return x.id === b.getAttribute('data-edit'); })); };
+    });
+    tb.querySelectorAll('[data-del]').forEach(function (b) {
+      b.onclick = async function () {
+        if (!confirm('Delete this cabin assignment?')) return;
+        if (await api('/api/admin/cabins/delete', { id: b.getAttribute('data-del') })) load();
+      };
+    });
+  }
+
+  function fillTypeFilter() {
+    var types = [...new Set(allCabins.map(function (c) { return c.cabin_type; }).filter(Boolean))].sort();
+    var cur = $('fType').value;
+    $('fType').innerHTML = '<option value="">All</option>' + types.map(function (t) { return '<option' + (t === cur ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('');
+  }
+
+  function applyFilters() {
+    var d = $('fDrifter').value, t = $('fType').value, q = $('fSearch').value.trim().toLowerCase();
+    render(allCabins.filter(function (c) {
+      if (d && c.drifter !== d) return false;
+      if (t && c.cabin_type !== t) return false;
+      if (q && !((c.name || '') + ' ' + (c.res_number || '') + ' ' + (c.cabin_number || '') + ' ' + (c.notes || '')).toLowerCase().includes(q)) return false;
+      return true;
+    }));
+  }
+
+  async function load() {
+    $('pageMsg').hidden = true;
+    try {
+      var res = await fetch('/api/admin/cabins');
+      if (!res.ok) throw new Error('http ' + res.status);
+      allCabins = (await res.json()).cabins || [];
+      fillTypeFilter();
+      applyFilters();
+    } catch (e) {
+      $('pageMsg').textContent = 'Could not load cabins. Please try again.';
+      $('pageMsg').className = 'a-msg err'; $('pageMsg').hidden = false;
+    }
+  }
+
+  // ---- Add / Edit ----
+  function openEdit(c) {
+    c = c || {};
+    $('editTitle').textContent = c.id ? 'Edit Cabin' : 'Add Cabin';
+    $('e-id').value = c.id || '';
+    ['name', 'cabin_number', 'cabin_type', 'res_number', 'drifter', 'notes'].forEach(function (k) { $('e-' + k).value = c[k] || ''; });
+    $('editModal').style.display = 'flex';
+  }
+  $('addBtn').onclick = function () { openEdit(null); };
+  $('cancelBtn').onclick = function () { $('editModal').style.display = 'none'; };
+  $('editModal').addEventListener('click', function (e) { if (e.target === $('editModal')) $('editModal').style.display = 'none'; });
+  $('saveBtn').onclick = async function () {
+    var body = { id: $('e-id').value || undefined };
+    ['name', 'cabin_number', 'cabin_type', 'res_number', 'drifter', 'notes'].forEach(function (k) { body[k] = $('e-' + k).value; });
+    if (await api('/api/admin/cabins/save', body)) { $('editModal').style.display = 'none'; load(); }
+  };
+
+  // ---- Import ----
+  $('importBtn').onclick = function () { $('importModal').style.display = 'flex'; };
+  $('importCancel').onclick = function () { $('importModal').style.display = 'none'; };
+  $('importModal').addEventListener('click', function (e) { if (e.target === $('importModal')) $('importModal').style.display = 'none'; });
+
+  function parseRows(text) {
+    var out = [];
+    text.split(/\r?\n/).forEach(function (line) {
+      if (!line.trim()) return;
+      var cells = line.indexOf('\t') > -1 ? line.split('\t') : parseCsvLine(line);
+      // Skip a header row.
+      if (/cabin\s*#|cabin_number/i.test(cells[0]) && /type/i.test(cells[1] || '')) return;
+      out.push({
+        cabin_number: (cells[0] || '').trim(),
+        cabin_type: (cells[1] || '').trim(),
+        name: (cells[2] || '').trim(),
+        res_number: (cells[3] || '').trim(),
+        drifter: (cells[4] || '').trim(),
+        notes: (cells[5] || '').trim(),
+      });
+    });
+    return out;
+  }
+  function parseCsvLine(line) {
+    var res = [], cur = '', q = false;
+    for (var i = 0; i < line.length; i++) {
+      var ch = line[i];
+      if (q) { if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; } else if (ch === '"') { q = false; } else { cur += ch; } }
+      else { if (ch === '"') { q = true; } else if (ch === ',') { res.push(cur); cur = ''; } else { cur += ch; } }
+    }
+    res.push(cur);
+    return res;
+  }
+  $('importGo').onclick = async function () {
+    var rows = parseRows($('importText').value);
+    var m = $('importMsg');
+    if (!rows.length) { m.hidden = false; m.className = 'a-msg err'; m.textContent = 'No rows found.'; return; }
+    try {
+      var res = await fetch('/api/admin/cabins/import', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows: rows, replace: $('importReplace').checked }),
+      });
+      var d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'error');
+      m.hidden = false; m.className = 'a-msg ok'; m.textContent = 'Imported ' + d.added + ' cabins ✓';
+      setTimeout(function () { $('importModal').style.display = 'none'; load(); }, 1000);
+    } catch (e) {
+      m.hidden = false; m.className = 'a-msg err'; m.textContent = 'Import failed. Check the format and try again.';
+    }
+  };
+
+  // Filters
+  $('fDrifter').onchange = applyFilters;
+  $('fType').onchange = applyFilters;
+  $('fSearch').addEventListener('input', applyFilters);
+
+  load();
+})();
+</script>
+</body>
+</html>

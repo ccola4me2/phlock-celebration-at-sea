@@ -74,6 +74,17 @@ export async function ensureSchema(db) {
     )`,
     `CREATE INDEX IF NOT EXISTS idx_leads_created ON leads(created_at)`,
     `CREATE INDEX IF NOT EXISTS idx_leads_status ON leads(status)`,
+    `CREATE TABLE IF NOT EXISTS cabins (
+      id TEXT PRIMARY KEY,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER,
+      name TEXT,
+      res_number TEXT,
+      cabin_type TEXT,
+      cabin_number TEXT,
+      drifter TEXT,
+      notes TEXT
+    )`,
   ];
   for (const sql of statements) await db.prepare(sql).run();
   schemaReady = true;
@@ -187,6 +198,53 @@ export async function listLeads(db, opts = {}) {
 
 export function deleteLead(db, id) {
   return db.prepare('DELETE FROM leads WHERE id = ?').bind(id).run();
+}
+
+// ---- cabins ----
+const CABIN_FIELDS = ['name', 'res_number', 'cabin_type', 'cabin_number', 'drifter', 'notes'];
+
+export function insertCabin(db, c) {
+  return db
+    .prepare(
+      `INSERT INTO cabins (id, created_at, name, res_number, cabin_type, cabin_number, drifter, notes)
+       VALUES (?,?,?,?,?,?,?,?)`
+    )
+    .bind(c.id, c.created_at, c.name, c.res_number, c.cabin_type, c.cabin_number, c.drifter, c.notes)
+    .run();
+}
+
+export async function listCabins(db, opts = {}) {
+  const where = [];
+  const args = [];
+  if (opts.drifter) { where.push('drifter = ?'); args.push(opts.drifter); }
+  if (opts.cabin_type) { where.push('cabin_type = ?'); args.push(opts.cabin_type); }
+  if (opts.q) {
+    where.push('(name LIKE ? OR res_number LIKE ? OR cabin_number LIKE ? OR notes LIKE ?)');
+    const like = '%' + opts.q + '%';
+    args.push(like, like, like, like);
+  }
+  const clause = where.length ? 'WHERE ' + where.join(' AND ') : '';
+  const rows = await db
+    .prepare(`SELECT * FROM cabins ${clause} ORDER BY cabin_number ASC LIMIT 2000`)
+    .bind(...args)
+    .all();
+  return rows.results || [];
+}
+
+export function updateCabin(db, id, fields) {
+  const cols = [];
+  const args = [];
+  for (const k of CABIN_FIELDS) {
+    if (fields[k] !== undefined) { cols.push(`${k} = ?`); args.push(fields[k]); }
+  }
+  if (!cols.length) return null;
+  cols.push('updated_at = ?');
+  args.push(Date.now(), id);
+  return db.prepare(`UPDATE cabins SET ${cols.join(', ')} WHERE id = ?`).bind(...args).run();
+}
+
+export function deleteCabin(db, id) {
+  return db.prepare('DELETE FROM cabins WHERE id = ?').bind(id).run();
 }
 
 export function updateLead(db, id, fields) {

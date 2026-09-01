@@ -8,6 +8,12 @@ import {
 } from './auth.js';
 import { handleAdminApi, handleConversion } from './admin.js';
 import { handleCreateLead, handleListLeads, handleUpdateLead, handleDeleteLead } from './leads.js';
+import {
+  handleListCabins,
+  handleSaveCabin,
+  handleDeleteCabin,
+  handleImportCabins,
+} from './cabins.js';
 import { ensureSchema, insertVisit } from './db.js';
 import { parseCookies } from './util.js';
 
@@ -86,6 +92,14 @@ export default {
       return handleUpdateLead(request, env);
     if (path === '/api/admin/leads/delete' && request.method === 'POST')
       return handleDeleteLead(request, env);
+    if (path === '/api/admin/cabins' && request.method === 'GET')
+      return handleListCabins(request, env, url);
+    if (path === '/api/admin/cabins/save' && request.method === 'POST')
+      return handleSaveCabin(request, env);
+    if (path === '/api/admin/cabins/delete' && request.method === 'POST')
+      return handleDeleteCabin(request, env);
+    if (path === '/api/admin/cabins/import' && request.method === 'POST')
+      return handleImportCabins(request, env);
     if (path.startsWith('/api/admin/')) return handleAdminApi(request, env, url);
 
     // ---- Admin page gate ----
