@@ -3,7 +3,7 @@
 // Admin: GET /api/admin/leads (list/CSV), POST /api/admin/leads/update.
 
 import { requireAdmin } from './auth.js';
-import { ensureSchema, insertLead, listLeads, updateLead, insertConversion } from './db.js';
+import { ensureSchema, insertLead, listLeads, updateLead, deleteLead, insertConversion } from './db.js';
 import { json, parseCookies } from './util.js';
 
 const ATTR_COOKIE = 'phc_attr';
@@ -191,5 +191,21 @@ export async function handleUpdateLead(request, env) {
   if (body.assigned_to !== undefined) fields.assigned_to = clip(body.assigned_to, 60);
   if (body.notes !== undefined) fields.notes = clip(body.notes, 8000);
   await updateLead(env.DB, id, fields);
+  return json({ ok: true });
+}
+
+export async function handleDeleteLead(request, env) {
+  const admin = await requireAdmin(request, env);
+  if (!admin) return json({ error: 'unauthorized' }, 401);
+  await ensureSchema(env.DB);
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: 'bad_request' }, 400);
+  }
+  const id = clip(body.id, 60);
+  if (!id) return json({ error: 'missing_id' }, 400);
+  await deleteLead(env.DB, id);
   return json({ ok: true });
 }

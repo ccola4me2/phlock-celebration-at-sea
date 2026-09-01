@@ -7,7 +7,7 @@ import {
   isAdmin,
 } from './auth.js';
 import { handleAdminApi, handleConversion } from './admin.js';
-import { handleCreateLead, handleListLeads, handleUpdateLead } from './leads.js';
+import { handleCreateLead, handleListLeads, handleUpdateLead, handleDeleteLead } from './leads.js';
 import { ensureSchema, insertVisit } from './db.js';
 import { parseCookies } from './util.js';
 
@@ -84,6 +84,8 @@ export default {
       return handleListLeads(request, env, url);
     if (path === '/api/admin/leads/update' && request.method === 'POST')
       return handleUpdateLead(request, env);
+    if (path === '/api/admin/leads/delete' && request.method === 'POST')
+      return handleDeleteLead(request, env);
     if (path.startsWith('/api/admin/')) return handleAdminApi(request, env, url);
 
     // ---- Admin page gate ----

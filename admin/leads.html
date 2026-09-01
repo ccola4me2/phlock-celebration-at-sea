@@ -121,6 +121,7 @@
         '<p style="margin:0 0 0.5rem;"><strong>Message:</strong> ' + (l.message ? esc(l.message) : '<em style="color:var(--a-soft);">none</em>') + '</p>' +
         '<label class="a-field" style="max-width:560px;"><span>Notes (internal)</span><textarea class="a-input" data-notes="' + l.id + '" rows="3">' + esc(l.notes || '') + '</textarea></label>' +
         '<button class="a-btn" data-savenotes="' + l.id + '" style="padding:0.5em 1em;">Save notes</button> <span class="a-msg ok" data-notesok="' + l.id + '" hidden>Saved ✓</span>' +
+        '<button class="a-btn a-btn-ghost" data-delete="' + l.id + '" style="float:right;color:var(--a-red);border-color:var(--a-red);padding:0.5em 1em;">Delete lead</button>' +
         '</div></td>';
       tb.appendChild(detail);
     });
@@ -144,6 +145,16 @@
         var ta = tb.querySelector('[data-notes="' + id + '"]');
         var ok = await update(id, { notes: ta.value });
         if (ok) { var m = tb.querySelector('[data-notesok="' + id + '"]'); m.hidden = false; setTimeout(function () { m.hidden = true; }, 2000); }
+      });
+    });
+    tb.querySelectorAll('[data-delete]').forEach(function (btn) {
+      btn.addEventListener('click', async function () {
+        var id = btn.getAttribute('data-delete');
+        if (!confirm('Delete this lead permanently? This cannot be undone.')) return;
+        var res = await fetch('/api/admin/leads/delete', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id }),
+        });
+        if (res.ok) load();
       });
     });
   }

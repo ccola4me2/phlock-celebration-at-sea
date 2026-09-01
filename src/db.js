@@ -185,6 +185,10 @@ export async function listLeads(db, opts = {}) {
   return rows.results || [];
 }
 
+export function deleteLead(db, id) {
+  return db.prepare('DELETE FROM leads WHERE id = ?').bind(id).run();
+}
+
 export function updateLead(db, id, fields) {
   const cols = [];
   const args = [];
