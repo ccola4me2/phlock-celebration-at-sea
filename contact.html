@@ -102,22 +102,35 @@
         <form id="leadForm" novalidate>
           <div class="form-grid">
             <div class="form-field"><label for="lf-first">First Name *</label><input id="lf-first" name="first_name" autocomplete="given-name" required></div>
-            <div class="form-field"><label for="lf-last">Last Name</label><input id="lf-last" name="last_name" autocomplete="family-name"></div>
+            <div class="form-field"><label for="lf-last">Last Name *</label><input id="lf-last" name="last_name" autocomplete="family-name" required></div>
             <div class="form-field"><label for="lf-email">Email *</label><input id="lf-email" name="email" type="email" autocomplete="email" required></div>
-            <div class="form-field"><label for="lf-phone">Phone</label><input id="lf-phone" name="phone" type="tel" autocomplete="tel"></div>
-            <div class="form-field"><label for="lf-state">State</label><input id="lf-state" name="state" autocomplete="address-level1"></div>
-            <div class="form-field"><label for="lf-cabin">Cabin Interest</label>
-              <select id="lf-cabin" name="cabin">
+            <div class="form-field"><label for="lf-phone">Phone *</label><input id="lf-phone" name="phone" type="tel" autocomplete="tel" required></div>
+            <div class="form-field"><label for="lf-state">State *</label><input id="lf-state" name="state" autocomplete="address-level1" required></div>
+            <div class="form-field"><label for="lf-cabin">Cabin Interest *</label>
+              <select id="lf-cabin" name="cabin" required>
                 <option value="">Select&hellip;</option>
-                <option>Cozy Interior</option>
-                <option>Ocean View</option>
-                <option>Breezy Balcony</option>
-                <option>Wake View Balcony</option>
-                <option>Suite</option>
-                <option>Not sure &ndash; help me choose</option>
+                <option>Cozy Interior - from $844.40 pp</option>
+                <option>Picturesque Oceanview - from $1,005.90 pp</option>
+                <option>Breezy Balcony - from $1,091.40 pp</option>
+                <option>Wake View Balcony - from $1,129.40 pp</option>
+                <option>Junior Corner Suite - from $1,813.40 pp</option>
+                <option>Grand Terrace Suite - from $1,908.40 pp</option>
               </select>
             </div>
-            <div class="form-field full"><label for="lf-heard">How did you hear about us?</label><input id="lf-heard" name="heard"></div>
+            <div class="form-field full"><label for="lf-heard">How did you hear about us? *</label>
+              <select id="lf-heard" name="heard" required>
+                <option value="">Select&hellip;</option>
+                <option>Cruised on Previous Parrot Head Drifters Cruise</option>
+                <option>Referred by a Parrot Head Drifter</option>
+                <option>Facebook</option>
+                <option>Instagram</option>
+                <option>Google</option>
+                <option>Brent Beasley</option>
+                <option>Dawn Turner</option>
+                <option>Lori Judd</option>
+                <option>Brent's Friends and Family Cruise</option>
+              </select>
+            </div>
             <div class="form-field full"><label for="lf-message">Message</label><textarea id="lf-message" name="message" rows="4"></textarea></div>
             <div class="form-field full" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;">
               <label>Company</label><input name="company" tabindex="-1" autocomplete="off">
@@ -139,9 +152,7 @@
         form.addEventListener('submit', async function (e) {
           e.preventDefault();
           msg.hidden = true;
-          if (!form.first_name.value.trim() || !form.email.value.trim()) {
-            err('Please add your first name and email.'); return;
-          }
+          if (!form.checkValidity()) { form.reportValidity(); return; }
           btn.disabled = true; var orig = btn.textContent; btn.textContent = 'Sending…';
           try {
             var data = {};
