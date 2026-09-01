@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Leads | Parrothead Day Cruise Admin</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+<div class="a-bar">
+  <a class="a-brand" href="/admin">Parrothead Admin <span>· PHC</span></a>
+  <nav class="a-nav">
+    <a href="/admin">Dashboard</a>
+    <a href="/admin/leads">Leads</a>
+    <a href="/admin/links">Link Builder</a>
+    <a href="/admin/reports">Reports</a>
+  </nav>
+  <div class="a-who" id="aWho"></div>
+</div>
+
+<div class="a-wrap">
+  <h1 class="a-h1">Leads</h1>
+  <p class="a-lede">Every inquiry from the website, in one place. Update status, assign an advisor, and add notes.</p>
+
+  <div class="a-card" style="margin-bottom:1.3rem;">
+    <div style="display:flex;gap:1rem;align-items:flex-end;flex-wrap:wrap;">
+      <label class="a-field" style="margin:0;"><span>Status</span>
+        <select class="a-input" id="fStatus" style="min-width:150px;">
+          <option value="">All</option>
+          <option value="new">New</option>
+          <option value="contacted">Contacted</option>
+          <option value="quoted">Quoted</option>
+          <option value="booked">Booked</option>
+          <option value="lost">Lost</option>
+        </select>
+      </label>
+      <label class="a-field" style="margin:0;flex:1;min-width:180px;"><span>Search name / email / phone</span>
+        <input class="a-input" id="fSearch" type="search" placeholder="Search&hellip;">
+      </label>
+      <button class="a-btn" id="applyBtn" type="button">Apply</button>
+      <a class="a-btn a-btn-ghost" id="csvBtn" href="/api/admin/leads?format=csv" download>Export CSV</a>
+    </div>
+  </div>
+
+  <div class="a-card" style="overflow-x:auto;">
+    <table class="a-table" id="leadsTable">
+      <thead><tr>
+        <th>Date</th><th>Name &amp; Contact</th><th>Cabin</th><th>Came From</th>
+        <th>Status</th><th>Assigned</th><th></th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+    <p class="a-hint" id="leadsEmpty" hidden style="padding:1rem;">No leads yet. They'll appear here the moment someone submits the contact form.</p>
+  </div>
+  <p class="a-msg" id="pageMsg" hidden></p>
+</div>
+
+<script src="/js/admin.js"></script>
+<script>
+(async function () {
+  var user = await window.PHCAdmin;
+  if (!user) return;
+  var $ = function (id) { return document.getElementById(id); };
+  var STATUSES = ['new', 'contacted', 'quoted', 'booked', 'lost'];
+  var ADVISORS = ['', 'Lori', 'Dawn', 'Brent'];
+  var esc = function (s) { var d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; };
+  var fmtDate = function (ms) { var d = new Date(ms); return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); };
+  function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+
+  function origin(l) {
+    if (l.advisor) return 'Advisor: ' + l.advisor;
+    if (l.source) return 'Source: ' + l.source;
+    if (l.referrer) return l.referrer;
+    return 'Direct';
+  }
+
+  async function update(id, fields) {
+    var res = await fetch('/api/admin/leads/update', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.assign({ id: id }, fields)),
+    });
+    return res.ok;
+  }
+
+  function statusSelect(l) {
+    return '<select class="a-input" data-status="' + l.id + '" style="padding:0.4em;min-width:120px;">' +
+      STATUSES.map(function (s) { return '<option value="' + s + '"' + (l.status === s ? ' selected' : '') + '>' + cap(s) + '</option>'; }).join('') +
+      '</select>';
+  }
+  function assignSelect(l) {
+    return '<select class="a-input" data-assign="' + l.id + '" style="padding:0.4em;min-width:110px;">' +
+      ADVISORS.map(function (a) { return '<option value="' + a + '"' + ((l.assigned_to || '') === a ? ' selected' : '') + '>' + (a || 'Unassigned') + '</option>'; }).join('') +
+      '</select>';
+  }
+
+  function render(leads) {
+    var tb = document.querySelector('#leadsTable tbody');
+    tb.innerHTML = '';
+    $('leadsEmpty').hidden = leads.length > 0;
+    leads.forEach(function (l) {
+      var tr = document.createElement('tr');
+      var contact = [l.email, l.phone].filter(Boolean).map(esc).join('<br>');
+      tr.innerHTML =
+        '<td style="white-space:nowrap;">' + fmtDate(l.created_at) + '</td>' +
+        '<td><strong>' + esc((l.first_name || '') + ' ' + (l.last_name || '')) + '</strong><br><span style="color:var(--a-soft);font-size:0.82rem;">' + contact + '</span></td>' +
+        '<td>' + esc(l.cabin || '—') + '</td>' +
+        '<td style="font-size:0.85rem;">' + esc(origin(l)) + '</td>' +
+        '<td>' + statusSelect(l) + '</td>' +
+        '<td>' + assignSelect(l) + '</td>' +
+        '<td><button class="a-btn a-btn-ghost" data-details="' + l.id + '" style="padding:0.4em 0.7em;">Details</button></td>';
+      tb.appendChild(tr);
+
+      var detail = document.createElement('tr');
+      detail.hidden = true;
+      detail.innerHTML = '<td colspan="7" style="background:var(--a-bg);">' +
+        '<div style="padding:0.6rem 0.2rem;">' +
+        (l.heard ? '<p style="margin:0 0 0.5rem;"><strong>Heard about us:</strong> ' + esc(l.heard) + '</p>' : '') +
+        '<p style="margin:0 0 0.5rem;"><strong>Message:</strong> ' + (l.message ? esc(l.message) : '<em style="color:var(--a-soft);">none</em>') + '</p>' +
+        '<label class="a-field" style="max-width:560px;"><span>Notes (internal)</span><textarea class="a-input" data-notes="' + l.id + '" rows="3">' + esc(l.notes || '') + '</textarea></label>' +
+        '<button class="a-btn" data-savenotes="' + l.id + '" style="padding:0.5em 1em;">Save notes</button> <span class="a-msg ok" data-notesok="' + l.id + '" hidden>Saved ✓</span>' +
+        '</div></td>';
+      tb.appendChild(detail);
+    });
+
+    // Wire inline controls.
+    tb.querySelectorAll('[data-status]').forEach(function (sel) {
+      sel.addEventListener('change', function () { update(sel.getAttribute('data-status'), { status: sel.value }); });
+    });
+    tb.querySelectorAll('[data-assign]').forEach(function (sel) {
+      sel.addEventListener('change', function () { update(sel.getAttribute('data-assign'), { assigned_to: sel.value }); });
+    });
+    tb.querySelectorAll('[data-details]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var row = btn.closest('tr').nextElementSibling;
+        row.hidden = !row.hidden;
+      });
+    });
+    tb.querySelectorAll('[data-savenotes]').forEach(function (btn) {
+      btn.addEventListener('click', async function () {
+        var id = btn.getAttribute('data-savenotes');
+        var ta = tb.querySelector('[data-notes="' + id + '"]');
+        var ok = await update(id, { notes: ta.value });
+        if (ok) { var m = tb.querySelector('[data-notesok="' + id + '"]'); m.hidden = false; setTimeout(function () { m.hidden = true; }, 2000); }
+      });
+    });
+  }
+
+  async function load() {
+    $('pageMsg').hidden = true;
+    var qs = new URLSearchParams();
+    if ($('fStatus').value) qs.set('status', $('fStatus').value);
+    if ($('fSearch').value.trim()) qs.set('q', $('fSearch').value.trim());
+    try {
+      var res = await fetch('/api/admin/leads?' + qs.toString());
+      if (!res.ok) throw new Error('http ' + res.status);
+      var d = await res.json();
+      render(d.leads || []);
+      $('csvBtn').href = '/api/admin/leads?format=csv' + (qs.toString() ? '&' + qs.toString() : '');
+    } catch (e) {
+      $('pageMsg').textContent = 'Could not load leads. Please try again.';
+      $('pageMsg').className = 'a-msg err'; $('pageMsg').hidden = false;
+    }
+  }
+
+  $('applyBtn').onclick = load;
+  $('fStatus').addEventListener('change', load);
+  $('fSearch').addEventListener('keydown', function (e) { if (e.key === 'Enter') load(); });
+  load();
+})();
+</script>
+</body>
+</html>

@@ -50,6 +50,30 @@ export async function ensureSchema(db) {
       created_at INTEGER NOT NULL
     )`,
     `CREATE INDEX IF NOT EXISTS idx_conversions_created ON conversions(created_at)`,
+    `CREATE TABLE IF NOT EXISTS leads (
+      id TEXT PRIMARY KEY,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER,
+      first_name TEXT,
+      last_name TEXT,
+      email TEXT,
+      phone TEXT,
+      state TEXT,
+      cabin TEXT,
+      heard TEXT,
+      message TEXT,
+      advisor TEXT,
+      source TEXT,
+      medium TEXT,
+      campaign TEXT,
+      referrer TEXT,
+      landing TEXT,
+      status TEXT NOT NULL DEFAULT 'new',
+      assigned_to TEXT,
+      notes TEXT
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_leads_created ON leads(created_at)`,
+    `CREATE INDEX IF NOT EXISTS idx_leads_status ON leads(status)`,
   ];
   for (const sql of statements) await db.prepare(sql).run();
   schemaReady = true;
@@ -118,4 +142,57 @@ export function insertConversion(db, c) {
     )
     .bind(c.id, c.advisor, c.source, c.medium, c.campaign, c.content, c.landing, c.created_at)
     .run();
+}
+
+// ---- leads ----
+export function insertLead(db, l) {
+  return db
+    .prepare(
+      `INSERT INTO leads
+       (id, created_at, first_name, last_name, email, phone, state, cabin, heard, message,
+        advisor, source, medium, campaign, referrer, landing, status)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+    )
+    .bind(
+      l.id, l.created_at, l.first_name, l.last_name, l.email, l.phone, l.state, l.cabin, l.heard,
+      l.message, l.advisor, l.source, l.medium, l.campaign, l.referrer, l.landing, l.status || 'new'
+    )
+    .run();
+}
+
+export function getLead(db, id) {
+  return db.prepare('SELECT * FROM leads WHERE id = ?').bind(id).first();
+}
+
+export async function listLeads(db, opts = {}) {
+  const where = [];
+  const args = [];
+  if (opts.status) { where.push('status = ?'); args.push(opts.status); }
+  if (opts.advisor) { where.push('advisor = ?'); args.push(opts.advisor); }
+  if (opts.from != null) { where.push('created_at >= ?'); args.push(opts.from); }
+  if (opts.to != null) { where.push('created_at <= ?'); args.push(opts.to); }
+  if (opts.q) {
+    where.push('(first_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR phone LIKE ?)');
+    const like = '%' + opts.q + '%';
+    args.push(like, like, like, like);
+  }
+  const clause = where.length ? 'WHERE ' + where.join(' AND ') : '';
+  const limit = Math.min(opts.limit || 1000, 5000);
+  const rows = await db
+    .prepare(`SELECT * FROM leads ${clause} ORDER BY created_at DESC LIMIT ${limit}`)
+    .bind(...args)
+    .all();
+  return rows.results || [];
+}
+
+export function updateLead(db, id, fields) {
+  const cols = [];
+  const args = [];
+  for (const k of ['status', 'assigned_to', 'notes']) {
+    if (fields[k] !== undefined) { cols.push(`${k} = ?`); args.push(fields[k]); }
+  }
+  if (!cols.length) return null;
+  cols.push('updated_at = ?');
+  args.push(Date.now(), id);
+  return db.prepare(`UPDATE leads SET ${cols.join(', ')} WHERE id = ?`).bind(...args).run();
 }

@@ -7,6 +7,7 @@ import {
   isAdmin,
 } from './auth.js';
 import { handleAdminApi, handleConversion } from './admin.js';
+import { handleCreateLead, handleListLeads, handleUpdateLead } from './leads.js';
 import { ensureSchema, insertVisit } from './db.js';
 import { parseCookies } from './util.js';
 
@@ -77,6 +78,12 @@ export default {
     if (path === '/api/auth/me' && request.method === 'GET') return handleMe(request, env);
     if (path === '/api/track/conversion' && request.method === 'POST')
       return handleConversion(request, env);
+    if (path === '/api/lead' && request.method === 'POST')
+      return handleCreateLead(request, env, ctx);
+    if (path === '/api/admin/leads' && request.method === 'GET')
+      return handleListLeads(request, env, url);
+    if (path === '/api/admin/leads/update' && request.method === 'POST')
+      return handleUpdateLead(request, env);
     if (path.startsWith('/api/admin/')) return handleAdminApi(request, env, url);
 
     // ---- Admin page gate ----

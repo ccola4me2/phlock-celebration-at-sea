@@ -49,12 +49,5 @@
   </div>
 </footer>
 
-<script>
-// Log the conversion (first-touch advisor attribution lives in a Worker cookie).
-// Fire-and-forget; never blocks the page.
-try {
-  fetch('/api/track/conversion', { method: 'POST', keepalive: true });
-} catch (e) {}
-</script>
 </body>
 </html>

@@ -14,6 +14,7 @@
   <a class="a-brand" href="/admin">Parrothead Admin <span>· PHC</span></a>
   <nav class="a-nav">
     <a href="/admin">Dashboard</a>
+    <a href="/admin/leads">Leads</a>
     <a href="/admin/links">Link Builder</a>
     <a href="/admin/reports">Reports</a>
   </nav>
@@ -30,7 +31,12 @@
     <div class="a-stat"><div class="num" id="statConv">—</div><div class="lbl">Conversions</div></div>
   </div>
 
-  <div class="a-grid a-grid-2">
+  <div class="a-grid a-grid-3">
+    <a class="a-card" href="/admin/leads" style="text-decoration:none;color:inherit;display:block;">
+      <h2 style="margin-top:0;">📋 Leads <span id="newLeads" style="font-size:0.8rem;color:var(--a-red);"></span></h2>
+      <p style="color:var(--a-soft);">Every website inquiry in one place — update status, assign an advisor, and add notes.</p>
+      <span class="a-btn a-btn-ghost">View leads →</span>
+    </a>
     <a class="a-card" href="/admin/links" style="text-decoration:none;color:inherit;display:block;">
       <h2 style="margin-top:0;">🔗 Link Builder</h2>
       <p style="color:var(--a-soft);">Create trackable links for Facebook, email, or texts, tagged to you so you can see how your sharing performs.</p>
@@ -58,6 +64,13 @@
       document.getElementById('statVisits').textContent = (d.visits || 0).toLocaleString();
       document.getElementById('statTagged').textContent = (d.tagged || 0).toLocaleString();
       document.getElementById('statConv').textContent = (d.conversions || 0).toLocaleString();
+    }
+  } catch (e) {}
+  try {
+    var lr = await fetch('/api/admin/leads?status=new');
+    if (lr.ok) {
+      var n = ((await lr.json()).leads || []).length;
+      if (n > 0) document.getElementById('newLeads').textContent = '(' + n + ' new)';
     }
   } catch (e) {}
 })();
