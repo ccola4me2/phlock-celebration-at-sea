@@ -43,14 +43,20 @@
       <button class="a-btn" id="addBtn" type="button">+ Add Cabin</button>
       <button class="a-btn a-btn-ghost" id="importBtn" type="button">Import</button>
       <a class="a-btn a-btn-ghost" id="csvBtn" href="/api/admin/cabins?format=csv" download>Export CSV</a>
-      <button class="a-btn a-btn-ghost" id="clearAllBtn" type="button" style="color:var(--a-red);border-color:var(--a-red);">Clear all</button>
     </div>
   </div>
 
   <div class="a-card" style="overflow-x:auto;">
     <table class="a-table" id="cabinsTable">
       <thead><tr>
-        <th>Cabin&nbsp;#</th><th>Type</th><th>TC &middot; Name(s)</th><th>Res&nbsp;#</th><th>Drifter</th><th>Notes</th><th></th>
+        <th data-sort="name" style="cursor:pointer;">Name(s) <span class="sort-ind"></span></th>
+        <th data-sort="cabin_number" style="cursor:pointer;">Cabin&nbsp;# <span class="sort-ind"></span></th>
+        <th data-sort="cabin_type" style="cursor:pointer;">Type <span class="sort-ind"></span></th>
+        <th data-sort="res_number" style="cursor:pointer;">Res&nbsp;# <span class="sort-ind"></span></th>
+        <th data-sort="drifter" style="cursor:pointer;">Drifter <span class="sort-ind"></span></th>
+        <th data-sort="tc" style="cursor:pointer;">TC <span class="sort-ind"></span></th>
+        <th data-sort="notes" style="cursor:pointer;">Notes <span class="sort-ind"></span></th>
+        <th></th>
       </tr></thead>
       <tbody></tbody>
     </table>
@@ -131,11 +137,12 @@
     cabins.forEach(function (c) {
       var tr = document.createElement('tr');
       tr.innerHTML =
-        '<td style="white-space:nowrap;"><strong>' + esc(c.cabin_number) + '</strong></td>' +
+        '<td><strong>' + esc(c.name) + '</strong></td>' +
+        '<td style="white-space:nowrap;">' + esc(c.cabin_number) + '</td>' +
         '<td>' + esc(c.cabin_type) + '</td>' +
-        '<td><input type="checkbox" data-tc="' + c.id + '"' + (c.tc ? ' checked' : '') + ' title="Tour Conductor (TC)" style="margin-right:0.5em;vertical-align:middle;">' + esc(c.name) + '</td>' +
         '<td>' + esc(c.res_number) + '</td>' +
         '<td>' + esc(c.drifter) + '</td>' +
+        '<td>' + (c.tc ? '<span style="background:var(--a-gold);color:var(--a-navy);font-size:0.68rem;font-weight:700;letter-spacing:0.04em;padding:0.15em 0.5em;border-radius:999px;">TC</span>' : '') + '</td>' +
         '<td style="font-size:0.85rem;color:var(--a-soft);max-width:280px;">' + esc(c.notes) + '</td>' +
         '<td style="white-space:nowrap;"><button class="a-btn a-btn-ghost" data-edit="' + c.id + '" style="padding:0.35em 0.7em;">Edit</button> ' +
         '<button class="a-btn a-btn-ghost" data-del="' + c.id + '" style="padding:0.35em 0.7em;color:var(--a-red);border-color:var(--a-red);">×</button></td>';
@@ -150,15 +157,6 @@
         if (await api('/api/admin/cabins/delete', { id: b.getAttribute('data-del') })) load();
       };
     });
-    tb.querySelectorAll('[data-tc]').forEach(function (cb) {
-      cb.onchange = async function () {
-        var c = cabins.find(function (x) { return x.id === cb.getAttribute('data-tc'); });
-        if (!c) return;
-        // Send the full cabin so only tc changes (other fields preserved).
-        var body = Object.assign({}, c, { tc: cb.checked ? 1 : 0 });
-        if (await api('/api/admin/cabins/save', body)) { c.tc = cb.checked ? 1 : 0; }
-      };
-    });
   }
 
   function fillTypeFilter() {
@@ -167,15 +165,43 @@
     $('fType').innerHTML = '<option value="">All</option>' + types.map(function (t) { return '<option' + (t === cur ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('');
   }
 
+  var sortState = { key: null, dir: 1 };
+  function sortList(list) {
+    if (!sortState.key) return list;
+    var k = sortState.key, dir = sortState.dir;
+    return list.slice().sort(function (a, b) {
+      if (k === 'tc') return ((a.tc ? 1 : 0) - (b.tc ? 1 : 0)) * dir;
+      var av = a[k] == null ? '' : String(a[k]);
+      var bv = b[k] == null ? '' : String(b[k]);
+      if (!av && bv) return 1;   // blanks always last
+      if (av && !bv) return -1;
+      return av.localeCompare(bv, undefined, { numeric: true, sensitivity: 'base' }) * dir;
+    });
+  }
+  function updateSortInd() {
+    document.querySelectorAll('#cabinsTable th[data-sort]').forEach(function (th) {
+      var ind = th.querySelector('.sort-ind');
+      if (ind) ind.textContent = th.getAttribute('data-sort') === sortState.key ? (sortState.dir === 1 ? ' ▲' : ' ▼') : '';
+    });
+  }
   function applyFilters() {
     var d = $('fDrifter').value, t = $('fType').value, q = $('fSearch').value.trim().toLowerCase();
-    render(allCabins.filter(function (c) {
+    render(sortList(allCabins.filter(function (c) {
       if (d && c.drifter !== d) return false;
       if (t && c.cabin_type !== t) return false;
       if (q && !((c.name || '') + ' ' + (c.res_number || '') + ' ' + (c.cabin_number || '') + ' ' + (c.notes || '')).toLowerCase().includes(q)) return false;
       return true;
-    }));
+    })));
+    updateSortInd();
   }
+  document.querySelectorAll('#cabinsTable th[data-sort]').forEach(function (th) {
+    th.addEventListener('click', function () {
+      var k = th.getAttribute('data-sort');
+      if (sortState.key === k) sortState.dir = -sortState.dir;
+      else { sortState.key = k; sortState.dir = 1; }
+      applyFilters();
+    });
+  });
 
   async function load() {
     $('pageMsg').hidden = true;
@@ -221,10 +247,6 @@
     var r = new FileReader();
     r.onload = function () { $('importText').value = r.result; $('importReplace').checked = true; };
     r.readAsText(f);
-  };
-  $('clearAllBtn').onclick = async function () {
-    if (!confirm('Delete ALL cabins? This wipes the whole list and cannot be undone.')) return;
-    if (await api('/api/admin/cabins/clear', {})) load();
   };
 
   function parseRows(text) {

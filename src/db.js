@@ -236,7 +236,10 @@ export async function listCabins(db, opts = {}) {
   }
   const clause = where.length ? 'WHERE ' + where.join(' AND ') : '';
   const rows = await db
-    .prepare(`SELECT * FROM cabins ${clause} ORDER BY cabin_number ASC LIMIT 2000`)
+    .prepare(
+      `SELECT * FROM cabins ${clause}
+       ORDER BY (cabin_number IS NULL OR cabin_number = '') ASC, cabin_number ASC LIMIT 2000`
+    )
     .bind(...args)
     .all();
   return rows.results || [];
