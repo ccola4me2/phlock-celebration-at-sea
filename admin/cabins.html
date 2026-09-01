@@ -49,7 +49,7 @@
   <div class="a-card" style="overflow-x:auto;">
     <table class="a-table" id="cabinsTable">
       <thead><tr>
-        <th>Cabin&nbsp;#</th><th>Type</th><th>Name(s)</th><th>Res&nbsp;#</th><th>Drifter</th><th>Notes</th><th></th>
+        <th>Cabin&nbsp;#</th><th>Type</th><th>TC &middot; Name(s)</th><th>Res&nbsp;#</th><th>Drifter</th><th>Notes</th><th></th>
       </tr></thead>
       <tbody></tbody>
     </table>
@@ -70,6 +70,9 @@
       <label class="a-field"><span>Reservation #</span><input class="a-input" id="e-res_number"></label>
       <label class="a-field"><span>Drifter</span>
         <select class="a-input" id="e-drifter"><option value="">—</option><option value="Current">Current</option><option value="New">New</option></select>
+      </label>
+      <label class="a-field"><span>Tour Conductor</span>
+        <span style="display:inline-flex;align-items:center;gap:0.5em;padding-top:0.5em;"><input type="checkbox" id="e-tc"> This cabin is a TC</span>
       </label>
       <label class="a-field" style="grid-column:1/-1;"><span>Notes (deposit, relationship, etc.)</span><textarea class="a-input" id="e-notes" rows="3"></textarea></label>
     </div>
@@ -127,7 +130,7 @@
       tr.innerHTML =
         '<td style="white-space:nowrap;"><strong>' + esc(c.cabin_number) + '</strong></td>' +
         '<td>' + esc(c.cabin_type) + '</td>' +
-        '<td>' + esc(c.name) + '</td>' +
+        '<td><input type="checkbox" data-tc="' + c.id + '"' + (c.tc ? ' checked' : '') + ' title="Tour Conductor (TC)" style="margin-right:0.5em;vertical-align:middle;">' + esc(c.name) + '</td>' +
         '<td>' + esc(c.res_number) + '</td>' +
         '<td>' + esc(c.drifter) + '</td>' +
         '<td style="font-size:0.85rem;color:var(--a-soft);max-width:280px;">' + esc(c.notes) + '</td>' +
@@ -142,6 +145,15 @@
       b.onclick = async function () {
         if (!confirm('Delete this cabin assignment?')) return;
         if (await api('/api/admin/cabins/delete', { id: b.getAttribute('data-del') })) load();
+      };
+    });
+    tb.querySelectorAll('[data-tc]').forEach(function (cb) {
+      cb.onchange = async function () {
+        var c = cabins.find(function (x) { return x.id === cb.getAttribute('data-tc'); });
+        if (!c) return;
+        // Send the full cabin so only tc changes (other fields preserved).
+        var body = Object.assign({}, c, { tc: cb.checked ? 1 : 0 });
+        if (await api('/api/admin/cabins/save', body)) { c.tc = cb.checked ? 1 : 0; }
       };
     });
   }
@@ -182,6 +194,7 @@
     $('editTitle').textContent = c.id ? 'Edit Cabin' : 'Add Cabin';
     $('e-id').value = c.id || '';
     ['name', 'cabin_number', 'cabin_type', 'res_number', 'drifter', 'notes'].forEach(function (k) { $('e-' + k).value = c[k] || ''; });
+    $('e-tc').checked = !!c.tc;
     $('editModal').style.display = 'flex';
   }
   $('addBtn').onclick = function () { openEdit(null); };
@@ -190,6 +203,7 @@
   $('saveBtn').onclick = async function () {
     var body = { id: $('e-id').value || undefined };
     ['name', 'cabin_number', 'cabin_type', 'res_number', 'drifter', 'notes'].forEach(function (k) { body[k] = $('e-' + k).value; });
+    body.tc = $('e-tc').checked ? 1 : 0;
     if (await api('/api/admin/cabins/save', body)) { $('editModal').style.display = 'none'; load(); }
   };
 
@@ -212,6 +226,7 @@
         res_number: (cells[3] || '').trim(),
         drifter: (cells[4] || '').trim(),
         notes: (cells[5] || '').trim(),
+        tc: (cells[6] || '').trim(),
       });
     });
     return out;

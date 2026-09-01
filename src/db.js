@@ -83,10 +83,21 @@ export async function ensureSchema(db) {
       cabin_type TEXT,
       cabin_number TEXT,
       drifter TEXT,
-      notes TEXT
+      notes TEXT,
+      tc INTEGER NOT NULL DEFAULT 0
     )`,
   ];
   for (const sql of statements) await db.prepare(sql).run();
+  // Additive migrations for tables that may already exist (ADD COLUMN fails
+  // harmlessly if the column is already there).
+  const migrations = ['ALTER TABLE cabins ADD COLUMN tc INTEGER NOT NULL DEFAULT 0'];
+  for (const sql of migrations) {
+    try {
+      await db.prepare(sql).run();
+    } catch (e) {
+      /* column already exists */
+    }
+  }
   schemaReady = true;
 }
 
@@ -201,15 +212,15 @@ export function deleteLead(db, id) {
 }
 
 // ---- cabins ----
-const CABIN_FIELDS = ['name', 'res_number', 'cabin_type', 'cabin_number', 'drifter', 'notes'];
+const CABIN_FIELDS = ['name', 'res_number', 'cabin_type', 'cabin_number', 'drifter', 'notes', 'tc'];
 
 export function insertCabin(db, c) {
   return db
     .prepare(
-      `INSERT INTO cabins (id, created_at, name, res_number, cabin_type, cabin_number, drifter, notes)
-       VALUES (?,?,?,?,?,?,?,?)`
+      `INSERT INTO cabins (id, created_at, name, res_number, cabin_type, cabin_number, drifter, notes, tc)
+       VALUES (?,?,?,?,?,?,?,?,?)`
     )
-    .bind(c.id, c.created_at, c.name, c.res_number, c.cabin_type, c.cabin_number, c.drifter, c.notes)
+    .bind(c.id, c.created_at, c.name, c.res_number, c.cabin_type, c.cabin_number, c.drifter, c.notes, c.tc || 0)
     .run();
 }
 

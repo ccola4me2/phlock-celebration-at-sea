@@ -16,6 +16,12 @@ function normDrifter(v) {
   return clip(v, 20);
 }
 
+function truthy(v) {
+  if (v === true || v === 1) return 1;
+  const s = String(v == null ? '' : v).trim().toLowerCase();
+  return s === '1' || s === 'x' || s === 'y' || s === 'yes' || s === 'true' || s === 'tc' ? 1 : 0;
+}
+
 function cabinFromBody(b) {
   return {
     name: clip(b.name, 200),
@@ -24,6 +30,7 @@ function cabinFromBody(b) {
     cabin_number: clip(b.cabin_number, 20),
     drifter: normDrifter(b.drifter),
     notes: clip(b.notes, 2000),
+    tc: truthy(b.tc),
   };
 }
 
