@@ -100,6 +100,14 @@ export async function handleDeleteCabin(request, env) {
   return json({ ok: true });
 }
 
+export async function handleClearCabins(request, env) {
+  const admin = await requireAdmin(request, env);
+  if (!admin) return json({ error: 'unauthorized' }, 401);
+  await ensureSchema(env.DB);
+  await env.DB.prepare('DELETE FROM cabins').run();
+  return json({ ok: true });
+}
+
 // Bulk import: { rows: [{name,res_number,cabin_type,cabin_number,drifter,notes}], replace?:bool }
 export async function handleImportCabins(request, env) {
   const admin = await requireAdmin(request, env);

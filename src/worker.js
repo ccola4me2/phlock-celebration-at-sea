@@ -13,6 +13,7 @@ import {
   handleSaveCabin,
   handleDeleteCabin,
   handleImportCabins,
+  handleClearCabins,
 } from './cabins.js';
 import { ensureSchema, insertVisit } from './db.js';
 import { parseCookies } from './util.js';
@@ -100,6 +101,8 @@ export default {
       return handleDeleteCabin(request, env);
     if (path === '/api/admin/cabins/import' && request.method === 'POST')
       return handleImportCabins(request, env);
+    if (path === '/api/admin/cabins/clear' && request.method === 'POST')
+      return handleClearCabins(request, env);
     if (path.startsWith('/api/admin/')) return handleAdminApi(request, env, url);
 
     // ---- Admin page gate ----

@@ -43,6 +43,7 @@
       <button class="a-btn" id="addBtn" type="button">+ Add Cabin</button>
       <button class="a-btn a-btn-ghost" id="importBtn" type="button">Import</button>
       <a class="a-btn a-btn-ghost" id="csvBtn" href="/api/admin/cabins?format=csv" download>Export CSV</a>
+      <button class="a-btn a-btn-ghost" id="clearAllBtn" type="button" style="color:var(--a-red);border-color:var(--a-red);">Clear all</button>
     </div>
   </div>
 
@@ -92,9 +93,11 @@
 <div id="importModal" style="display:none;position:fixed;inset:0;z-index:100;background:rgba(6,15,28,0.6);align-items:flex-start;justify-content:center;overflow-y:auto;padding:2rem 1rem;">
   <div class="a-card" style="width:100%;max-width:640px;">
     <h2 style="margin-top:0;">Import Cabins</h2>
-    <p class="a-hint">Paste rows below — one cabin per line, columns separated by <strong>tabs</strong> (paste straight from a spreadsheet) or commas, in this order:</p>
+    <p class="a-hint"><strong>Easiest:</strong> choose the <code>.tsv</code> file below (it keeps the columns lined up).</p>
+    <input type="file" id="importFile" accept=".tsv,.csv,.txt" class="a-input" style="margin-bottom:1rem;">
+    <p class="a-hint">…or paste rows manually — one cabin per line, columns separated by <strong>tabs</strong> or commas, in this order:</p>
     <p class="a-hint" style="font-family:ui-monospace,monospace;">Cabin #&nbsp; Type&nbsp; Name(s)&nbsp; Res #&nbsp; Drifter&nbsp; Notes</p>
-    <textarea class="a-input" id="importText" rows="10" placeholder="7325&#9;Grand Suite&#9;Lori Judd &amp; guest&#9;54378629&#9;Current&#9;"></textarea>
+    <textarea class="a-input" id="importText" rows="8" placeholder="7325&#9;Grand Suite&#9;Lori Judd &amp; guest&#9;54378629&#9;Current&#9;"></textarea>
     <label style="display:flex;align-items:center;gap:0.5rem;margin:0.8rem 0;font-size:0.9rem;">
       <input type="checkbox" id="importReplace"> Replace all existing cabins (otherwise adds to the list)
     </label>
@@ -211,6 +214,18 @@
   $('importBtn').onclick = function () { $('importModal').style.display = 'flex'; };
   $('importCancel').onclick = function () { $('importModal').style.display = 'none'; };
   $('importModal').addEventListener('click', function (e) { if (e.target === $('importModal')) $('importModal').style.display = 'none'; });
+  // Reading the file preserves the tab columns exactly (paste often does not).
+  $('importFile').onchange = function (e) {
+    var f = e.target.files && e.target.files[0];
+    if (!f) return;
+    var r = new FileReader();
+    r.onload = function () { $('importText').value = r.result; $('importReplace').checked = true; };
+    r.readAsText(f);
+  };
+  $('clearAllBtn').onclick = async function () {
+    if (!confirm('Delete ALL cabins? This wipes the whole list and cannot be undone.')) return;
+    if (await api('/api/admin/cabins/clear', {})) load();
+  };
 
   function parseRows(text) {
     var out = [];
