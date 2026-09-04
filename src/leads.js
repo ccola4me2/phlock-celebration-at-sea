@@ -194,6 +194,57 @@ export async function handleUpdateLead(request, env) {
   return json({ ok: true });
 }
 
+// Bulk import existing leads (e.g. from GoHighLevel). Admin-only; does NOT send
+// email alerts (these are historical), and lets you set source/status per row.
+export async function handleImportLeads(request, env) {
+  const admin = await requireAdmin(request, env);
+  if (!admin) return json({ error: 'unauthorized' }, 401);
+  await ensureSchema(env.DB);
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: 'bad_request' }, 400);
+  }
+  const rows = Array.isArray(body.rows) ? body.rows : [];
+  if (!rows.length) return json({ error: 'no_rows' }, 400);
+  if (rows.length > 1000) return json({ error: 'too_many' }, 400);
+  const STATUS = ['new', 'contacted', 'quoted', 'booked', 'lost'];
+  let added = 0;
+  for (const r of rows) {
+    const first = clip(r.first_name, 80);
+    const email = clip(r.email, 160);
+    const phone = clip(r.phone, 40);
+    if (!first && !email && !phone) continue;
+    let created = Date.now();
+    if (r.created_at) {
+      const t = Date.parse(r.created_at);
+      if (!Number.isNaN(t)) created = t;
+    }
+    await insertLead(env.DB, {
+      id: crypto.randomUUID(),
+      created_at: created,
+      first_name: first,
+      last_name: clip(r.last_name, 80),
+      email,
+      phone,
+      state: clip(r.state, 60),
+      cabin: clip(r.cabin, 120),
+      heard: clip(r.heard, 160),
+      message: clip(r.message, 4000),
+      advisor: clip(r.advisor, 60),
+      source: clip(r.source, 60),
+      medium: clip(r.medium, 60),
+      campaign: clip(r.campaign, 60),
+      referrer: '',
+      landing: '',
+      status: STATUS.includes(r.status) ? r.status : 'new',
+    });
+    added++;
+  }
+  return json({ ok: true, added });
+}
+
 export async function handleDeleteLead(request, env) {
   const admin = await requireAdmin(request, env);
   if (!admin) return json({ error: 'unauthorized' }, 401);

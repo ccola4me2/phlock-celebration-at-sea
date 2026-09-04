@@ -43,6 +43,7 @@
         <input class="a-input" id="fSearch" type="search" placeholder="Search&hellip;">
       </label>
       <button class="a-btn" id="applyBtn" type="button">Apply</button>
+      <button class="a-btn a-btn-ghost" id="importBtn" type="button">Import</button>
       <a class="a-btn a-btn-ghost" id="csvBtn" href="/api/admin/leads?format=csv" download>Export CSV</a>
     </div>
   </div>
@@ -58,6 +59,21 @@
     <p class="a-hint" id="leadsEmpty" hidden style="padding:1rem;">No leads yet. They'll appear here the moment someone submits the contact form.</p>
   </div>
   <p class="a-msg" id="pageMsg" hidden></p>
+</div>
+
+<div id="importModal" style="display:none;position:fixed;inset:0;z-index:100;background:rgba(6,15,28,0.6);align-items:flex-start;justify-content:center;overflow-y:auto;padding:2rem 1rem;">
+  <div class="a-card" style="width:100%;max-width:660px;">
+    <h2 style="margin-top:0;">Import Leads</h2>
+    <p class="a-hint"><strong>Easiest:</strong> choose a <code>.csv</code> file, or paste rows below — one lead per line, columns separated by tabs, commas, or <code>|</code>, in this order:</p>
+    <p class="a-hint" style="font-family:ui-monospace,monospace;">First Name | Last Name | Email | Phone | State | Cabin | Heard | Source | Status</p>
+    <input type="file" id="importFile" accept=".csv,.tsv,.txt" class="a-input" style="margin-bottom:0.8rem;">
+    <textarea class="a-input" id="importText" rows="8" placeholder="John | Smith | john@email.com | 5551234567 | FL | Balcony | Facebook | facebook | new"></textarea>
+    <div style="display:flex;gap:0.6rem;align-items:center;margin-top:0.8rem;">
+      <button class="a-btn" id="importGo" type="button">Import</button>
+      <button class="a-btn a-btn-ghost" id="importCancel" type="button">Cancel</button>
+      <span class="a-msg" id="importMsg" hidden></span>
+    </div>
+  </div>
 </div>
 
 <script src="/js/admin.js"></script>
@@ -177,6 +193,56 @@
       $('pageMsg').className = 'a-msg err'; $('pageMsg').hidden = false;
     }
   }
+
+  // ---- Import ----
+  function parseCsvLine(line) {
+    var res = [], cur = '', q = false;
+    for (var i = 0; i < line.length; i++) {
+      var ch = line[i];
+      if (q) { if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; } else if (ch === '"') { q = false; } else { cur += ch; } }
+      else { if (ch === '"') { q = true; } else if (ch === ',') { res.push(cur); cur = ''; } else { cur += ch; } }
+    }
+    res.push(cur); return res;
+  }
+  function parseLeadRows(text) {
+    var out = [];
+    text.split(/\r?\n/).forEach(function (line) {
+      if (!line.trim()) return;
+      var cells;
+      if (line.indexOf('\t') > -1) cells = line.split('\t');
+      else if (line.indexOf('|') > -1) cells = line.split('|');
+      else cells = parseCsvLine(line);
+      cells = cells.map(function (c) { return (c || '').trim(); });
+      if (/first\s*name|first_name/i.test(cells[0]) && /last|email/i.test(cells[1] || '')) return; // header
+      out.push({
+        first_name: cells[0] || '', last_name: cells[1] || '', email: cells[2] || '',
+        phone: cells[3] || '', state: cells[4] || '', cabin: cells[5] || '',
+        heard: cells[6] || '', source: cells[7] || '', status: (cells[8] || '').toLowerCase(),
+      });
+    });
+    return out;
+  }
+  $('importBtn').onclick = function () { $('importModal').style.display = 'flex'; };
+  $('importCancel').onclick = function () { $('importModal').style.display = 'none'; };
+  $('importModal').addEventListener('click', function (e) { if (e.target === $('importModal')) $('importModal').style.display = 'none'; });
+  $('importFile').onchange = function (e) {
+    var f = e.target.files && e.target.files[0]; if (!f) return;
+    var r = new FileReader(); r.onload = function () { $('importText').value = r.result; }; r.readAsText(f);
+  };
+  $('importGo').onclick = async function () {
+    var rows = parseLeadRows($('importText').value);
+    var m = $('importMsg');
+    if (!rows.length) { m.hidden = false; m.className = 'a-msg err'; m.textContent = 'No rows found.'; return; }
+    try {
+      var res = await fetch('/api/admin/leads/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rows: rows }) });
+      var d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'error');
+      m.hidden = false; m.className = 'a-msg ok'; m.textContent = 'Imported ' + d.added + ' leads ✓';
+      setTimeout(function () { $('importModal').style.display = 'none'; load(); }, 1000);
+    } catch (e) {
+      m.hidden = false; m.className = 'a-msg err'; m.textContent = 'Import failed. Check the format and try again.';
+    }
+  };
 
   $('applyBtn').onclick = load;
   $('fStatus').addEventListener('change', load);

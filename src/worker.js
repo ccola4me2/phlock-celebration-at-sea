@@ -7,7 +7,13 @@ import {
   isAdmin,
 } from './auth.js';
 import { handleAdminApi, handleConversion } from './admin.js';
-import { handleCreateLead, handleListLeads, handleUpdateLead, handleDeleteLead } from './leads.js';
+import {
+  handleCreateLead,
+  handleListLeads,
+  handleUpdateLead,
+  handleDeleteLead,
+  handleImportLeads,
+} from './leads.js';
 import {
   handleListCabins,
   handleSaveCabin,
@@ -93,6 +99,8 @@ export default {
       return handleUpdateLead(request, env);
     if (path === '/api/admin/leads/delete' && request.method === 'POST')
       return handleDeleteLead(request, env);
+    if (path === '/api/admin/leads/import' && request.method === 'POST')
+      return handleImportLeads(request, env);
     if (path === '/api/admin/cabins' && request.method === 'GET')
       return handleListCabins(request, env, url);
     if (path === '/api/admin/cabins/save' && request.method === 'POST')
