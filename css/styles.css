@@ -960,6 +960,64 @@ blockquote.quote-card {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 .sfc-logo:hover { transform: translateY(-3px); box-shadow: 0 14px 34px rgba(0, 0, 0, 0.4); }
+
+/* Charity: narrative story blocks (origin story + Sherri's story) */
+.story { max-width: 760px; margin: 0 auto; }
+.story-prose p {
+  font-family: var(--font-serif);
+  font-size: 1.22rem;
+  line-height: 1.78;
+  margin: 0 0 1.05em;
+  color: var(--ink);
+}
+.story-prose p:last-child { margin-bottom: 0; }
+.bg-navy .story-prose p { color: rgba(255, 255, 255, 0.84); }
+.story-prose p:first-of-type::first-letter {
+  font-family: var(--font-display);
+  font-size: 3.5em;
+  line-height: 0.66;
+  float: left;
+  margin: 0.05em 0.11em 0 0;
+  color: var(--gold);
+  font-weight: 700;
+}
+.story-prose strong { color: var(--gold); font-weight: 600; }
+.bg-navy .story-prose strong { color: var(--gold-light); }
+.story-highlight {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: clamp(1.2rem, 2.4vw, 1.42rem);
+  line-height: 1.5;
+  text-align: center;
+  color: var(--gold);
+  border-top: 1px solid rgba(201, 165, 69, 0.4);
+  border-bottom: 1px solid rgba(201, 165, 69, 0.4);
+  padding: 1.05em 0;
+  margin: 1.7em auto 0;
+  max-width: 640px;
+}
+.story-sign { margin-top: 1.7em; text-align: right; }
+.story-sign .fins {
+  display: block;
+  font-family: var(--font-body);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  color: var(--gold);
+}
+.story-sign .name {
+  display: block;
+  font-family: var(--font-script);
+  font-size: 2.8rem;
+  line-height: 1;
+  color: var(--gold-light);
+  margin-top: 0.05em;
+}
+@media (max-width: 600px) {
+  .story-prose p { font-size: 1.12rem; line-height: 1.72; }
+}
+
 .hero.charity-hero {
   background:
     linear-gradient(180deg, rgba(6, 15, 28, 0.72) 0%, rgba(6, 15, 28, 0.5) 45%, rgba(6, 15, 28, 0.82) 100%),
