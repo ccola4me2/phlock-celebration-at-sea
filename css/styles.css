@@ -961,6 +961,57 @@ blockquote.quote-card {
 }
 .sfc-logo:hover { transform: translateY(-3px); box-shadow: 0 14px 34px rgba(0, 0, 0, 0.4); }
 
+/* Guest testimonial spotlight */
+.testimonial { max-width: 800px; margin: 0 auto; text-align: center; }
+.testimonial-mark {
+  font-family: var(--font-display);
+  font-size: 4.6rem;
+  line-height: 0.5;
+  color: var(--gold);
+  opacity: 0.5;
+  display: block;
+  margin-bottom: 0.15em;
+}
+.testimonial-body p {
+  font-family: var(--font-serif);
+  font-size: clamp(1.15rem, 2.1vw, 1.4rem);
+  line-height: 1.72;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 0 0.95em;
+}
+.testimonial-body p:last-child { margin-bottom: 0; }
+.testimonial-author { margin-top: 1.5em; }
+.testimonial-author .name {
+  font-family: var(--font-script);
+  font-size: 2.5rem;
+  line-height: 1;
+  color: var(--gold-light);
+}
+.testimonial-author .who {
+  display: block;
+  margin-top: 0.35em;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--gold);
+}
+.testimonial-badge {
+  display: inline-block;
+  margin-top: 1.2em;
+  padding: 0.5em 1.15em;
+  border: 1px solid rgba(201, 165, 69, 0.5);
+  border-radius: 999px;
+  font-size: 0.76rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--gold-light);
+}
+@media (max-width: 600px) {
+  .testimonial-body p { font-size: 1.08rem; line-height: 1.68; }
+}
+
 /* Charity: narrative story blocks (origin story + Sherri's story) */
 .story { max-width: 760px; margin: 0 auto; }
 .story-prose p {
