@@ -961,55 +961,67 @@ blockquote.quote-card {
 }
 .sfc-logo:hover { transform: translateY(-3px); box-shadow: 0 14px 34px rgba(0, 0, 0, 0.4); }
 
-/* Guest testimonial spotlight */
-.testimonial { max-width: 800px; margin: 0 auto; text-align: center; }
-.testimonial-mark {
+/* Guest testimonials (card grid, scales as reviews grow) */
+.testimonial-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--space-4);
+  max-width: 1040px;
+  margin: 0 auto;
+}
+.t-card {
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(201, 165, 69, 0.28);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+}
+.t-card .t-mark {
   font-family: var(--font-display);
-  font-size: 4.6rem;
-  line-height: 0.5;
+  font-size: 3rem;
+  line-height: 0.4;
   color: var(--gold);
   opacity: 0.5;
   display: block;
-  margin-bottom: 0.15em;
+  margin-bottom: 0.35em;
 }
-.testimonial-body p {
+.t-card blockquote {
+  margin: 0;
   font-family: var(--font-serif);
-  font-size: clamp(1.15rem, 2.1vw, 1.4rem);
-  line-height: 1.72;
+  font-size: 1.14rem;
+  line-height: 1.68;
   color: rgba(255, 255, 255, 0.9);
-  margin: 0 0 0.95em;
 }
-.testimonial-body p:last-child { margin-bottom: 0; }
-.testimonial-author { margin-top: 1.5em; }
-.testimonial-author .name {
+.t-card blockquote p { margin: 0 0 0.8em; }
+.t-card blockquote p:last-child { margin-bottom: 0; }
+.t-foot { margin-top: auto; padding-top: var(--space-3); }
+.t-foot .t-name {
   font-family: var(--font-script);
-  font-size: 2.5rem;
+  font-size: 2rem;
   line-height: 1;
   color: var(--gold-light);
 }
-.testimonial-author .who {
+.t-foot .t-who {
   display: block;
-  margin-top: 0.35em;
-  font-size: 0.78rem;
-  letter-spacing: 0.08em;
+  margin-top: 0.3em;
+  font-size: 0.74rem;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   font-weight: 600;
   color: var(--gold);
 }
-.testimonial-badge {
-  display: inline-block;
-  margin-top: 1.2em;
-  padding: 0.5em 1.15em;
+.t-badge {
+  align-self: flex-start;
+  margin-top: 0.9em;
+  padding: 0.4em 0.95em;
   border: 1px solid rgba(201, 165, 69, 0.5);
   border-radius: 999px;
-  font-size: 0.76rem;
-  letter-spacing: 0.06em;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   font-weight: 600;
   color: var(--gold-light);
-}
-@media (max-width: 600px) {
-  .testimonial-body p { font-size: 1.08rem; line-height: 1.68; }
 }
 
 /* Charity: narrative story blocks (origin story + Sherri's story) */
