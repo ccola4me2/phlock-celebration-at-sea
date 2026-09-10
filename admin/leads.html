@@ -125,7 +125,7 @@
         '<td style="white-space:nowrap;">' + fmtDate(l.created_at) + '</td>' +
         '<td><strong>' + esc((l.first_name || '') + ' ' + (l.last_name || '')) + '</strong><br><span style="color:var(--a-soft);font-size:0.82rem;">' + contact + '</span></td>' +
         '<td>' + esc(l.cabin || '—') + '</td>' +
-        '<td style="font-size:0.85rem;">' + esc(origin(l)) + '</td>' +
+        '<td class="came-from">' + esc(origin(l)) + '</td>' +
         '<td>' + statusSelect(l) + '</td>' +
         '<td>' + assignSelect(l) + '</td>' +
         '<td><button class="a-btn a-btn-ghost" data-details="' + l.id + '" style="padding:0.4em 0.7em;">Details</button></td>';

@@ -122,9 +122,16 @@ label.a-field span { display: block; font-size: 0.78rem; font-weight: 600; text-
 
 /* Tables */
 .a-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-.a-table th, .a-table td { text-align: left; padding: 0.6em 0.7em; border-bottom: 1px solid var(--a-line); }
+.a-table th, .a-table td { text-align: left; padding: 0.6em 0.7em; border-bottom: 1px solid var(--a-line); vertical-align: top; }
 .a-table th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--a-soft); }
 .a-table td.num, .a-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+/* Leads: keep long attribution strings (app IDs, URLs) from blowing out the row */
+.a-table td.came-from {
+  font-size: 0.85rem;
+  max-width: 170px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
 .a-section-title { font-size: 1.05rem; margin: 1.8rem 0 0.7rem; }
 
 /* Generated-link output */
