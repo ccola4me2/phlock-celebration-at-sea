@@ -46,6 +46,17 @@
       <button class="a-btn a-btn-ghost" id="importBtn" type="button">Import</button>
       <a class="a-btn a-btn-ghost" id="csvBtn" href="/api/admin/leads?format=csv" download>Export CSV</a>
     </div>
+    <div style="display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap;margin-top:0.9rem;padding-top:0.9rem;border-top:1px solid var(--a-line);font-size:0.82rem;color:var(--a-soft);">
+      <span style="font-weight:600;text-transform:uppercase;letter-spacing:0.06em;font-size:0.72rem;margin-right:0.3rem;">Drip emails</span>
+      <span>Preview:</span>
+      <a class="a-btn a-btn-ghost" href="/api/admin/drip/preview?stage=1" target="_blank" rel="noopener" style="padding:0.35em 0.7em;">1</a>
+      <a class="a-btn a-btn-ghost" href="/api/admin/drip/preview?stage=2" target="_blank" rel="noopener" style="padding:0.35em 0.7em;">2</a>
+      <a class="a-btn a-btn-ghost" href="/api/admin/drip/preview?stage=3" target="_blank" rel="noopener" style="padding:0.35em 0.7em;">3</a>
+      <a class="a-btn a-btn-ghost" href="/api/admin/drip/preview?stage=4" target="_blank" rel="noopener" style="padding:0.35em 0.7em;">4</a>
+      <button class="a-btn a-btn-ghost" id="dripTestBtn" type="button" style="padding:0.35em 0.8em;margin-left:0.4rem;">Send me a test</button>
+      <span id="dripMsg" class="a-msg" style="margin:0 0 0 0.5rem;" hidden></span>
+      <span style="margin-left:auto;">Contacted + Quoted leads get 4 emails over 3 weeks (days 2, 6, 12, 20). Booked, Lost, or unsubscribed stops it.</span>
+    </div>
   </div>
 
   <div class="a-card" style="overflow-x:auto;">
@@ -114,6 +125,26 @@
       '</select>';
   }
 
+  function dripTag(l) {
+    var s = l.drip_status;
+    if (s === 'unsubscribed') return '<span class="drip-tag off">Unsubscribed</span>';
+    if (s === 'active') {
+      var next = l.drip_next_at ? new Date(l.drip_next_at).toLocaleDateString() : 'soon';
+      return '<span class="drip-tag on">Drip ' + (l.drip_stage || 0) + '/4 · next ' + next + '</span>';
+    }
+    if (s === 'done') return '<span class="drip-tag">Drip done 4/4</span>';
+    if (s === 'stopped') return '<span class="drip-tag">Drip stopped</span>';
+    if (l.status === 'contacted' || l.status === 'quoted') return '<span class="drip-tag">Drip pending</span>';
+    return '';
+  }
+
+  function dripButton(l) {
+    if (l.drip_status === 'unsubscribed') return '<span class="a-hint" style="margin-right:0.6em;">Unsubscribed from drip emails</span>';
+    if (l.drip_status === 'active') return '<button class="a-btn a-btn-ghost" data-drip="' + l.id + '" data-drip-action="stop" style="padding:0.5em 1em;">Stop drip emails</button> ';
+    if (l.email) return '<button class="a-btn a-btn-ghost" data-drip="' + l.id + '" data-drip-action="start" style="padding:0.5em 1em;">Start drip emails</button> ';
+    return '';
+  }
+
   function render(leads) {
     var tb = document.querySelector('#leadsTable tbody');
     tb.innerHTML = '';
@@ -126,7 +157,7 @@
         '<td><strong>' + esc((l.first_name || '') + ' ' + (l.last_name || '')) + '</strong><br><span style="color:var(--a-soft);font-size:0.82rem;">' + contact + '</span></td>' +
         '<td>' + esc(l.cabin || '—') + '</td>' +
         '<td class="came-from">' + esc(origin(l)) + '</td>' +
-        '<td>' + statusSelect(l) + '</td>' +
+        '<td>' + statusSelect(l) + dripTag(l) + '</td>' +
         '<td>' + assignSelect(l) + '</td>' +
         '<td><button class="a-btn a-btn-ghost" data-details="' + l.id + '" style="padding:0.4em 0.7em;">Details</button></td>';
       tb.appendChild(tr);
@@ -138,7 +169,8 @@
         (l.heard ? '<p style="margin:0 0 0.5rem;"><strong>Heard about us:</strong> ' + esc(l.heard) + '</p>' : '') +
         '<p style="margin:0 0 0.5rem;"><strong>Message:</strong> ' + (l.message ? esc(l.message) : '<em style="color:var(--a-soft);">none</em>') + '</p>' +
         '<label class="a-field" style="max-width:560px;"><span>Notes (internal)</span><textarea class="a-input" data-notes="' + l.id + '" rows="3">' + esc(l.notes || '') + '</textarea></label>' +
-        '<button class="a-btn" data-savenotes="' + l.id + '" style="padding:0.5em 1em;">Save notes</button> <span class="a-msg ok" data-notesok="' + l.id + '" hidden>Saved ✓</span>' +
+        '<button class="a-btn" data-savenotes="' + l.id + '" style="padding:0.5em 1em;">Save notes</button> <span class="a-msg ok" data-notesok="' + l.id + '" hidden>Saved ✓</span> ' +
+        dripButton(l) +
         '<button class="a-btn a-btn-ghost" data-delete="' + l.id + '" style="float:right;color:var(--a-red);border-color:var(--a-red);padding:0.5em 1em;">Delete lead</button>' +
         '</div></td>';
       tb.appendChild(detail);
@@ -163,6 +195,19 @@
         var ta = tb.querySelector('[data-notes="' + id + '"]');
         var ok = await update(id, { notes: ta.value });
         if (ok) { var m = tb.querySelector('[data-notesok="' + id + '"]'); m.hidden = false; setTimeout(function () { m.hidden = true; }, 2000); }
+      });
+    });
+    tb.querySelectorAll('[data-drip]').forEach(function (btn) {
+      btn.addEventListener('click', async function () {
+        var id = btn.getAttribute('data-drip');
+        var action = btn.getAttribute('data-drip-action');
+        if (action === 'start' && !confirm('Start the 4-email drip sequence for this lead? The first email goes out in 2 days.')) return;
+        var res = await fetch('/api/admin/leads/drip', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id, action: action }),
+        });
+        if (res.ok) { load(); return; }
+        var d = await res.json().catch(function () { return {}; });
+        alert(d.error === 'unsubscribed' ? 'This lead unsubscribed, so drip emails cannot be restarted.' : 'Could not update the drip for this lead.');
       });
     });
     tb.querySelectorAll('[data-delete]').forEach(function (btn) {
@@ -223,6 +268,28 @@
     return out;
   }
   $('importBtn').onclick = function () { $('importModal').style.display = 'flex'; };
+
+  // Send one email of the drip sequence to the signed-in admin to check copy
+  // and deliverability before the campaign is switched on.
+  $('dripTestBtn').onclick = async function () {
+    var stage = prompt('Which drip email should I send you? (1 to 4)', '1');
+    if (stage === null) return;
+    var n = parseInt(stage, 10);
+    if (!(n >= 1 && n <= 4)) { alert('Enter a number from 1 to 4.'); return; }
+    var btn = $('dripTestBtn'), msg = $('dripMsg');
+    btn.disabled = true; msg.hidden = true;
+    try {
+      var res = await fetch('/api/admin/drip/test', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stage: n }),
+      });
+      var d = await res.json().catch(function () { return {}; });
+      msg.className = 'a-msg ' + (res.ok ? 'ok' : 'err');
+      msg.textContent = res.ok ? 'Sent email ' + d.stage + ' to ' + d.to + ' ✓' : 'Send failed: ' + (d.detail || d.error || res.status);
+    } catch (e) {
+      msg.className = 'a-msg err'; msg.textContent = 'Send failed: ' + e.message;
+    }
+    msg.hidden = false; btn.disabled = false;
+  };
   $('importCancel').onclick = function () { $('importModal').style.display = 'none'; };
   $('importModal').addEventListener('click', function (e) { if (e.target === $('importModal')) $('importModal').style.display = 'none'; });
   $('importFile').onchange = function (e) {

@@ -21,6 +21,7 @@ import {
   handleImportCabins,
   handleClearCabins,
 } from './cabins.js';
+import { handleUnsubscribe, handleDripAdmin, runDrip } from './drip.js';
 import { ensureSchema, insertVisit } from './db.js';
 import { parseCookies } from './util.js';
 
@@ -111,6 +112,10 @@ export default {
       return handleImportCabins(request, env);
     if (path === '/api/admin/cabins/clear' && request.method === 'POST')
       return handleClearCabins(request, env);
+    // Drip campaign: public unsubscribe + admin preview/test/run/start-stop.
+    if (path === '/unsubscribe') return handleUnsubscribe(request, env, url);
+    if (path === '/api/admin/leads/drip' || path.startsWith('/api/admin/drip/'))
+      return handleDripAdmin(request, env, url);
     if (path.startsWith('/api/admin/')) return handleAdminApi(request, env, url);
 
     // ---- Admin page gate ----
@@ -172,5 +177,11 @@ export default {
       return new Response(response.body, { status: response.status, headers });
     }
     return response;
+  },
+
+  // Daily cron (wrangler.jsonc "triggers"): send the next drip email to each
+  // lead that is due. Sends nothing unless DRIP_ENABLED is "true".
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(runDrip(env));
   },
 };

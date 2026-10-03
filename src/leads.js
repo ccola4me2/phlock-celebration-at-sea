@@ -3,7 +3,8 @@
 // Admin: GET /api/admin/leads (list/CSV), POST /api/admin/leads/update.
 
 import { requireAdmin } from './auth.js';
-import { ensureSchema, insertLead, listLeads, updateLead, deleteLead, insertConversion } from './db.js';
+import { ensureSchema, insertLead, getLead, listLeads, updateLead, deleteLead, insertConversion } from './db.js';
+import { syncDripForStatus } from './drip.js';
 import { json, parseCookies } from './util.js';
 
 const ATTR_COOKIE = 'phc_attr';
@@ -151,7 +152,7 @@ export async function handleListLeads(request, env, url) {
   };
   const leads = await listLeads(env.DB, opts);
   if (q.get('format') === 'csv') {
-    const cols = ['created_at', 'first_name', 'last_name', 'email', 'phone', 'state', 'cabin', 'heard', 'advisor', 'source', 'campaign', 'status', 'assigned_to', 'message', 'notes'];
+    const cols = ['created_at', 'first_name', 'last_name', 'email', 'phone', 'state', 'cabin', 'heard', 'advisor', 'source', 'campaign', 'status', 'assigned_to', 'drip_status', 'message', 'notes'];
     const escCsv = (v) => {
       const s = String(v == null ? '' : v);
       return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
@@ -190,7 +191,10 @@ export async function handleUpdateLead(request, env) {
   }
   if (body.assigned_to !== undefined) fields.assigned_to = clip(body.assigned_to, 60);
   if (body.notes !== undefined) fields.notes = clip(body.notes, 8000);
+  const before = fields.status !== undefined ? await getLead(env.DB, id) : null;
   await updateLead(env.DB, id, fields);
+  // Contacted/Quoted enters the drip sequence; Booked/Lost leaves it.
+  if (before) await syncDripForStatus(env.DB, before, fields.status);
   return json({ ok: true });
 }
 

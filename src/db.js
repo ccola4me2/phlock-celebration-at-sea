@@ -90,7 +90,20 @@ export async function ensureSchema(db) {
   for (const sql of statements) await db.prepare(sql).run();
   // Additive migrations for tables that may already exist (ADD COLUMN fails
   // harmlessly if the column is already there).
-  const migrations = ['ALTER TABLE cabins ADD COLUMN tc INTEGER NOT NULL DEFAULT 0'];
+  const migrations = [
+    'ALTER TABLE cabins ADD COLUMN tc INTEGER NOT NULL DEFAULT 0',
+    // Drip campaign state on leads (see drip.js).
+    'ALTER TABLE leads ADD COLUMN drip_status TEXT',
+    'ALTER TABLE leads ADD COLUMN drip_stage INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE leads ADD COLUMN drip_next_at INTEGER',
+    'ALTER TABLE leads ADD COLUMN drip_started_at INTEGER',
+    'ALTER TABLE leads ADD COLUMN drip_last_sent_at INTEGER',
+    'ALTER TABLE leads ADD COLUMN unsub_token TEXT',
+    'ALTER TABLE leads ADD COLUMN unsubscribed_at INTEGER',
+    // Indexes on columns added above must run after the ALTERs.
+    'CREATE INDEX IF NOT EXISTS idx_leads_drip ON leads(drip_status, drip_next_at)',
+    'CREATE INDEX IF NOT EXISTS idx_leads_unsub ON leads(unsub_token)',
+  ];
   for (const sql of migrations) {
     try {
       await db.prepare(sql).run();
@@ -209,6 +222,56 @@ export async function listLeads(db, opts = {}) {
 
 export function deleteLead(db, id) {
   return db.prepare('DELETE FROM leads WHERE id = ?').bind(id).run();
+}
+
+// ---- leads: drip campaign state ----
+const DRIP_FIELDS = [
+  'drip_status',
+  'drip_stage',
+  'drip_next_at',
+  'drip_started_at',
+  'drip_last_sent_at',
+  'unsub_token',
+  'unsubscribed_at',
+];
+
+export function updateDrip(db, id, fields) {
+  const cols = [];
+  const args = [];
+  for (const k of DRIP_FIELDS) {
+    if (fields[k] !== undefined) { cols.push(`${k} = ?`); args.push(fields[k]); }
+  }
+  if (!cols.length) return null;
+  args.push(id);
+  return db.prepare(`UPDATE leads SET ${cols.join(', ')} WHERE id = ?`).bind(...args).run();
+}
+
+export function getLeadByUnsubToken(db, token) {
+  return db.prepare('SELECT * FROM leads WHERE unsub_token = ?').bind(token).first();
+}
+
+// Contacted/Quoted leads with an email that have never entered the sequence.
+export async function listDripEnrollable(db) {
+  const rows = await db
+    .prepare(
+      `SELECT * FROM leads
+       WHERE status IN ('contacted', 'quoted') AND drip_status IS NULL
+         AND email IS NOT NULL AND email <> '' LIMIT 500`
+    )
+    .all();
+  return rows.results || [];
+}
+
+export async function listDripDue(db, now, limit = 50) {
+  const rows = await db
+    .prepare(
+      `SELECT * FROM leads
+       WHERE drip_status = 'active' AND drip_next_at IS NOT NULL AND drip_next_at <= ?
+       ORDER BY drip_next_at ASC LIMIT ?`
+    )
+    .bind(now, limit)
+    .all();
+  return rows.results || [];
 }
 
 // ---- cabins ----
