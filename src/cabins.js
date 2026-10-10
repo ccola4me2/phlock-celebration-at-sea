@@ -2,7 +2,7 @@
 // Google Doc). List/save/delete plus a bulk paste-import.
 
 import { requireAdmin } from './auth.js';
-import { ensureSchema, insertCabin, listCabins, listCabinNumbers, updateCabin, deleteCabin } from './db.js';
+import { ensureSchema, insertCabin, listCabins, listCabinNumbers, updateCabin, deleteCabin, setStatusForUnnamed } from './db.js';
 import { json } from './util.js';
 
 function clip(s, n) {
@@ -28,18 +28,24 @@ function truthy(v) {
   return s === '1' || s === 'x' || s === 'y' || s === 'yes' || s === 'true' || s === 'tc' ? 1 : 0;
 }
 
-function cabinFromBody(b) {
-  return {
-    name: clip(b.name, 200),
-    res_number: clip(b.res_number, 40),
-    cabin_type: clip(b.cabin_type, 60),
-    cabin_number: clip(b.cabin_number, 20),
-    drifter: normDrifter(b.drifter),
-    notes: clip(b.notes, 2000),
-    tc: truthy(b.tc),
-    // Only touch status when the caller sent one (partial saves leave it alone).
-    status: b.status === undefined ? undefined : normStatus(b.status),
-  };
+// Defaults for a brand-new cabin row.
+const CABIN_DEFAULTS = { name: '', res_number: '', cabin_type: '', cabin_number: '', drifter: '', notes: '', tc: 0, status: 'booked' };
+
+// partial=true: only fields present in the body are returned, so an update
+// that sends {id, status} leaves name/notes/etc. alone instead of blanking them.
+function cabinFromBody(b, partial = false) {
+  const has = (k) => !partial || b[k] !== undefined;
+  const f = {};
+  if (has('name')) f.name = clip(b.name, 200);
+  if (has('res_number')) f.res_number = clip(b.res_number, 40);
+  if (has('cabin_type')) f.cabin_type = clip(b.cabin_type, 60);
+  if (has('cabin_number')) f.cabin_number = clip(b.cabin_number, 20);
+  if (has('drifter')) f.drifter = normDrifter(b.drifter);
+  if (has('notes')) f.notes = clip(b.notes, 2000);
+  if (has('tc')) f.tc = truthy(b.tc);
+  // Status only when the caller sent one (never reset it by accident).
+  if (b.status !== undefined) f.status = normStatus(b.status);
+  return f;
 }
 
 export async function handleListCabins(request, env, url) {
@@ -82,14 +88,16 @@ export async function handleSaveCabin(request, env) {
   } catch {
     return json({ error: 'bad_request' }, 400);
   }
-  const fields = cabinFromBody(body);
   const id = clip(body.id, 60);
   if (id) {
-    await updateCabin(env.DB, id, fields);
+    await updateCabin(env.DB, id, cabinFromBody(body, true));
     return json({ ok: true, id });
   }
   const newId = crypto.randomUUID();
-  await insertCabin(env.DB, Object.assign({ id: newId, created_at: Date.now() }, fields));
+  await insertCabin(
+    env.DB,
+    Object.assign({ id: newId, created_at: Date.now() }, CABIN_DEFAULTS, cabinFromBody(body))
+  );
   return json({ ok: true, id: newId });
 }
 
@@ -107,6 +115,24 @@ export async function handleDeleteCabin(request, env) {
   if (!id) return json({ error: 'missing_id' }, 400);
   await deleteCabin(env.DB, id);
   return json({ ok: true });
+}
+
+// Bulk repair: { status: 'available'|'booked', only: 'unnamed' }
+// Marks every cabin with no guests (blank name). Booked cabins with names are
+// never touched, so this is safe to run after an import done with the wrong status.
+export async function handleBulkCabinStatus(request, env) {
+  const admin = await requireAdmin(request, env);
+  if (!admin) return json({ error: 'unauthorized' }, 401);
+  await ensureSchema(env.DB);
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: 'bad_request' }, 400);
+  }
+  if (body.only !== 'unnamed') return json({ error: 'bad_scope' }, 400);
+  const updated = await setStatusForUnnamed(env.DB, normStatus(body.status));
+  return json({ ok: true, updated });
 }
 
 export async function handleClearCabins(request, env) {
@@ -150,7 +176,7 @@ export async function handleImportCabins(request, env) {
       continue;
     }
     f.status = status;
-    await insertCabin(env.DB, Object.assign({ id: crypto.randomUUID(), created_at: Date.now() }, f));
+    await insertCabin(env.DB, Object.assign({ id: crypto.randomUUID(), created_at: Date.now() }, CABIN_DEFAULTS, f));
     if (f.cabin_number) existing.add(f.cabin_number);
     added++;
   }

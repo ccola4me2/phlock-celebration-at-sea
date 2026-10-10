@@ -38,11 +38,6 @@
       <label class="a-field" style="margin:0;"><span>Cabin type</span>
         <select class="a-input" id="fType" style="min-width:140px;"><option value="">All</option></select>
       </label>
-      <label class="a-field" style="margin:0;"><span>Availability</span>
-        <select class="a-input" id="fAvail" style="min-width:140px;">
-          <option value="">All</option><option value="available">Available</option><option value="booked">Booked</option>
-        </select>
-      </label>
       <label class="a-field" style="margin:0;flex:1;min-width:160px;"><span>Search name / res # / cabin #</span>
         <input class="a-input" id="fSearch" type="search" placeholder="Search&hellip;">
       </label>
@@ -52,6 +47,11 @@
     </div>
   </div>
 
+  <div class="a-tabs" id="availTabs" role="tablist">
+    <button class="a-tab active" data-view="" type="button" role="tab">All <span class="a-tab-n" id="tabAllN">0</span></button>
+    <button class="a-tab" data-view="booked" type="button" role="tab">Booked <span class="a-tab-n" id="tabBookedN">0</span></button>
+    <button class="a-tab" data-view="available" type="button" role="tab">Available <span class="a-tab-n" id="tabAvailN">0</span></button>
+  </div>
   <div class="a-card" style="overflow-x:auto;">
     <table class="a-table" id="cabinsTable">
       <thead><tr>
@@ -129,6 +129,9 @@
       <button class="a-btn a-btn-ghost" id="importCancel" type="button">Cancel</button>
       <span class="a-msg" id="importMsg" hidden></span>
     </div>
+    <p class="a-hint" style="margin:1rem 0 0;padding-top:0.8rem;border-top:1px solid var(--a-line);">
+      Imported open cabins with the wrong status? <button class="a-link-toggle" id="fixAvailBtn" type="button">Mark every cabin with no name as Available</button>. Cabins with guests are never touched.
+    </p>
   </div>
 </div>
 
@@ -150,9 +153,13 @@
     var tb = document.querySelector('#cabinsTable tbody');
     tb.innerHTML = '';
     $('cabinsEmpty').hidden = cabins.length > 0;
+    $('cabinsEmpty').textContent = availView === 'available' ? 'No available cabins. Import your open inventory and mark it Available.'
+      : availView === 'booked' ? 'No booked cabins match these filters.'
+      : 'No cabins yet. Add one, or use Import to paste your list.';
     var bookedAll = allCabins.filter(function (c) { return c.status !== 'available'; }).length;
     var availAll = allCabins.length - bookedAll;
     $('cabinCount').textContent = allCabins.length ? '· ' + bookedAll + ' booked · ' + availAll + ' available' : '';
+    $('tabAllN').textContent = allCabins.length; $('tabBookedN').textContent = bookedAll; $('tabAvailN').textContent = availAll;
     cabins.forEach(function (c) {
       var tr = document.createElement('tr');
       tr.innerHTML =
@@ -184,6 +191,16 @@
     $('fType').innerHTML = '<option value="">All</option>' + types.map(function (t) { return '<option' + (t === cur ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('');
   }
 
+  // Which tab is showing: '' (all), 'booked', or 'available'.
+  var availView = '';
+  document.querySelectorAll('#availTabs .a-tab').forEach(function (b) {
+    b.addEventListener('click', function () {
+      availView = b.getAttribute('data-view');
+      document.querySelectorAll('#availTabs .a-tab').forEach(function (x) { x.classList.toggle('active', x === b); });
+      applyFilters();
+    });
+  });
+
   var sortState = { key: null, dir: 1 };
   function sortList(list) {
     if (!sortState.key) return list;
@@ -204,7 +221,7 @@
     });
   }
   function applyFilters() {
-    var d = $('fDrifter').value, t = $('fType').value, av = $('fAvail').value, q = $('fSearch').value.trim().toLowerCase();
+    var d = $('fDrifter').value, t = $('fType').value, av = availView, q = $('fSearch').value.trim().toLowerCase();
     render(sortList(allCabins.filter(function (c) {
       if (d && c.drifter !== d) return false;
       if (t && c.cabin_type !== t) return false;
@@ -326,10 +343,24 @@
     }
   };
 
+  // Repair: flip every unnamed cabin (open inventory) to Available.
+  $('fixAvailBtn').onclick = async function () {
+    var n = allCabins.filter(function (c) { return !(c.name || '').trim() && c.status !== 'available'; }).length;
+    var m = $('importMsg');
+    if (!n) { m.hidden = false; m.className = 'a-msg ok'; m.textContent = 'Every cabin without a name is already Available.'; return; }
+    if (!confirm('Mark ' + n + ' cabin' + (n === 1 ? '' : 's') + ' with no name as Available? Cabins with guests are not touched.')) return;
+    var res = await fetch('/api/admin/cabins/bulk-status', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'available', only: 'unnamed' }),
+    });
+    var d = await res.json().catch(function () { return {}; });
+    m.hidden = false; m.className = 'a-msg ' + (res.ok ? 'ok' : 'err');
+    m.textContent = res.ok ? 'Marked ' + d.updated + ' cabins Available ✓' : 'Could not update. Please try again.';
+    if (res.ok) setTimeout(function () { $('importModal').style.display = 'none'; load(); }, 1000);
+  };
+
   // Filters
   $('fDrifter').onchange = applyFilters;
   $('fType').onchange = applyFilters;
-  $('fAvail').onchange = applyFilters;
   $('fSearch').addEventListener('input', applyFilters);
 
   load();

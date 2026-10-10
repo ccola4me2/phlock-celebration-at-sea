@@ -147,6 +147,32 @@ label.a-field span { display: block; font-size: 0.78rem; font-weight: 600; text-
 .a-table th, .a-table td { text-align: left; padding: 0.6em 0.7em; border-bottom: 1px solid var(--a-line); vertical-align: top; }
 .a-table th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--a-soft); }
 .a-table td.num, .a-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+/* Cabins: All / Booked / Available tabs above the table */
+.a-tabs { display: flex; gap: 0.25rem; margin: 0 0 0.9rem; border-bottom: 2px solid var(--a-line); }
+.a-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  padding: 0.6em 1em;
+  font: inherit;
+  font-weight: 600;
+  color: var(--a-soft);
+  cursor: pointer;
+}
+.a-tab:hover { color: var(--a-navy); }
+.a-tab.active { color: var(--a-navy); border-bottom-color: var(--a-gold); }
+.a-tab-n {
+  display: inline-block;
+  margin-left: 0.4em;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: var(--a-bg);
+  color: var(--a-soft);
+  padding: 0.1em 0.55em;
+  border-radius: 999px;
+}
+.a-tab.active .a-tab-n { background: var(--a-gold); color: var(--a-navy); }
 /* Cabins: open-inventory badge */
 .a-badge-avail {
   display: inline-block;

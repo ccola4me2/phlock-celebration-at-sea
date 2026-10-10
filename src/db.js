@@ -323,6 +323,19 @@ export function updateCabin(db, id, fields) {
   return db.prepare(`UPDATE cabins SET ${cols.join(', ')} WHERE id = ?`).bind(...args).run();
 }
 
+// Flip every cabin that has no guests (blank name) to the given status.
+// Returns how many rows changed. Cabins with a name are never touched.
+export async function setStatusForUnnamed(db, status) {
+  const r = await db
+    .prepare(
+      `UPDATE cabins SET status = ?, updated_at = ?
+       WHERE (name IS NULL OR TRIM(name) = '') AND status <> ?`
+    )
+    .bind(status, Date.now(), status)
+    .run();
+  return (r.meta && r.meta.changes) || 0;
+}
+
 // Cabin numbers already on the manifest (used by import to skip duplicates).
 export async function listCabinNumbers(db) {
   const rows = await db
