@@ -38,6 +38,11 @@
       <label class="a-field" style="margin:0;"><span>Cabin type</span>
         <select class="a-input" id="fType" style="min-width:140px;"><option value="">All</option></select>
       </label>
+      <label class="a-field" style="margin:0;"><span>Availability</span>
+        <select class="a-input" id="fAvail" style="min-width:140px;">
+          <option value="">All</option><option value="available">Available</option><option value="booked">Booked</option>
+        </select>
+      </label>
       <label class="a-field" style="margin:0;flex:1;min-width:160px;"><span>Search name / res # / cabin #</span>
         <input class="a-input" id="fSearch" type="search" placeholder="Search&hellip;">
       </label>
@@ -79,6 +84,9 @@
       <label class="a-field"><span>Drifter</span>
         <select class="a-input" id="e-drifter"><option value="">—</option><option value="Current">Current</option><option value="New">New</option></select>
       </label>
+      <label class="a-field"><span>Status</span>
+        <select class="a-input" id="e-status"><option value="booked">Booked (has guests)</option><option value="available">Available (open to book)</option></select>
+      </label>
       <label class="a-field"><span>Tour Conductor</span>
         <span style="display:inline-flex;align-items:center;gap:0.5em;padding-top:0.5em;"><input type="checkbox" id="e-tc"> This cabin is a TC</span>
       </label>
@@ -94,6 +102,8 @@
   <option value="Interior"></option><option value="Ocean View"></option><option value="Balcony"></option>
   <option value="Wake Balcony"></option><option value="Junior Suite"></option><option value="Grand Suite"></option>
   <option value="Master Navigator"></option>
+  <option value="Cozy Interior"></option><option value="Picturesque Oceanview"></option><option value="Breezy Balcony"></option>
+  <option value="Wake View Balcony"></option><option value="Junior Corner Suite"></option><option value="Grand Terrace Suite"></option>
 </datalist>
 
 <!-- Import modal -->
@@ -102,11 +112,17 @@
     <h2 style="margin-top:0;">Import Cabins</h2>
     <p class="a-hint"><strong>Easiest:</strong> choose the <code>.tsv</code> file below (it keeps the columns lined up).</p>
     <input type="file" id="importFile" accept=".tsv,.csv,.txt" class="a-input" style="margin-bottom:1rem;">
-    <p class="a-hint">…or paste rows manually — one cabin per line, columns separated by <strong>tabs</strong> or commas, in this order:</p>
+    <p class="a-hint">…or paste rows manually, one cabin per line, columns separated by <strong>tabs</strong>, commas, or <strong>|</strong> pipes, in this order:</p>
     <p class="a-hint" style="font-family:ui-monospace,monospace;">Cabin #&nbsp; Type&nbsp; Name(s)&nbsp; Res #&nbsp; Drifter&nbsp; Notes</p>
     <textarea class="a-input" id="importText" rows="8" placeholder="7325&#9;Grand Suite&#9;Lori Judd &amp; guest&#9;54378629&#9;Current&#9;"></textarea>
-    <label style="display:flex;align-items:center;gap:0.5rem;margin:0.8rem 0;font-size:0.9rem;">
-      <input type="checkbox" id="importReplace"> Replace all existing cabins (otherwise adds to the list)
+    <label class="a-field" style="margin:0.8rem 0 0.4rem;max-width:260px;"><span>Mark imported cabins as</span>
+      <select class="a-input" id="importStatus"><option value="booked">Booked (has guests)</option><option value="available">Available (open to book)</option></select>
+    </label>
+    <label style="display:flex;align-items:center;gap:0.5rem;margin:0.4rem 0;font-size:0.9rem;">
+      <input type="checkbox" id="importSkipExisting" checked> Skip cabin numbers already on the list (existing bookings stay untouched)
+    </label>
+    <label style="display:flex;align-items:center;gap:0.5rem;margin:0.4rem 0 0.8rem;font-size:0.9rem;">
+      <input type="checkbox" id="importReplace"> Replace all existing cabins (wipes the whole list first)
     </label>
     <div style="display:flex;gap:0.6rem;align-items:center;">
       <button class="a-btn" id="importGo" type="button">Import</button>
@@ -134,11 +150,13 @@
     var tb = document.querySelector('#cabinsTable tbody');
     tb.innerHTML = '';
     $('cabinsEmpty').hidden = cabins.length > 0;
-    $('cabinCount').textContent = cabins.length ? '· ' + cabins.length + ' cabins' : '';
+    var bookedAll = allCabins.filter(function (c) { return c.status !== 'available'; }).length;
+    var availAll = allCabins.length - bookedAll;
+    $('cabinCount').textContent = allCabins.length ? '· ' + bookedAll + ' booked · ' + availAll + ' available' : '';
     cabins.forEach(function (c) {
       var tr = document.createElement('tr');
       tr.innerHTML =
-        '<td><strong>' + esc(c.name) + '</strong></td>' +
+        '<td>' + (c.status === 'available' ? '<span class="a-badge-avail">Available</span> ' : '') + '<strong>' + esc(c.name) + '</strong></td>' +
         '<td style="white-space:nowrap;">' + esc(c.cabin_number) + '</td>' +
         '<td>' + esc(c.cabin_type) + '</td>' +
         '<td>' + esc(c.res_number) + '</td>' +
@@ -186,10 +204,12 @@
     });
   }
   function applyFilters() {
-    var d = $('fDrifter').value, t = $('fType').value, q = $('fSearch').value.trim().toLowerCase();
+    var d = $('fDrifter').value, t = $('fType').value, av = $('fAvail').value, q = $('fSearch').value.trim().toLowerCase();
     render(sortList(allCabins.filter(function (c) {
       if (d && c.drifter !== d) return false;
       if (t && c.cabin_type !== t) return false;
+      if (av === 'available' && c.status !== 'available') return false;
+      if (av === 'booked' && c.status === 'available') return false;
       if (q && !((c.name || '') + ' ' + (c.res_number || '') + ' ' + (c.cabin_number || '') + ' ' + (c.notes || '')).toLowerCase().includes(q)) return false;
       return true;
     })));
@@ -225,15 +245,21 @@
     $('e-id').value = c.id || '';
     ['name', 'cabin_number', 'cabin_type', 'res_number', 'drifter', 'notes'].forEach(function (k) { $('e-' + k).value = c[k] || ''; });
     $('e-tc').checked = !!c.tc;
+    $('e-status').value = c.status === 'available' ? 'available' : 'booked';
     $('editModal').style.display = 'flex';
   }
   $('addBtn').onclick = function () { openEdit(null); };
   $('cancelBtn').onclick = function () { $('editModal').style.display = 'none'; };
+  // Typing a name into an Available cabin flips it to Booked automatically.
+  $('e-name').addEventListener('input', function () {
+    if ($('e-status').value === 'available' && $('e-name').value.trim()) $('e-status').value = 'booked';
+  });
   $('editModal').addEventListener('click', function (e) { if (e.target === $('editModal')) $('editModal').style.display = 'none'; });
   $('saveBtn').onclick = async function () {
     var body = { id: $('e-id').value || undefined };
     ['name', 'cabin_number', 'cabin_type', 'res_number', 'drifter', 'notes'].forEach(function (k) { body[k] = $('e-' + k).value; });
     body.tc = $('e-tc').checked ? 1 : 0;
+    body.status = $('e-status').value;
     if (await api('/api/admin/cabins/save', body)) { $('editModal').style.display = 'none'; load(); }
   };
 
@@ -246,7 +272,7 @@
     var f = e.target.files && e.target.files[0];
     if (!f) return;
     var r = new FileReader();
-    r.onload = function () { $('importText').value = r.result; $('importReplace').checked = true; };
+    r.onload = function () { $('importText').value = r.result; };
     r.readAsText(f);
   };
 
@@ -289,11 +315,11 @@
     try {
       var res = await fetch('/api/admin/cabins/import', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rows: rows, replace: $('importReplace').checked }),
+        body: JSON.stringify({ rows: rows, replace: $('importReplace').checked, status: $('importStatus').value, skipExisting: $('importSkipExisting').checked }),
       });
       var d = await res.json();
       if (!res.ok) throw new Error(d.error || 'error');
-      m.hidden = false; m.className = 'a-msg ok'; m.textContent = 'Imported ' + d.added + ' cabins ✓';
+      m.hidden = false; m.className = 'a-msg ok'; m.textContent = 'Imported ' + d.added + ' cabins ✓' + (d.skipped ? ' (skipped ' + d.skipped + ' already on the list)' : '');
       setTimeout(function () { $('importModal').style.display = 'none'; load(); }, 1000);
     } catch (e) {
       m.hidden = false; m.className = 'a-msg err'; m.textContent = 'Import failed. Check the format and try again.';
@@ -303,6 +329,7 @@
   // Filters
   $('fDrifter').onchange = applyFilters;
   $('fType').onchange = applyFilters;
+  $('fAvail').onchange = applyFilters;
   $('fSearch').addEventListener('input', applyFilters);
 
   load();

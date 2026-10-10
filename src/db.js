@@ -103,6 +103,8 @@ export async function ensureSchema(db) {
     // Indexes on columns added above must run after the ALTERs.
     'CREATE INDEX IF NOT EXISTS idx_leads_drip ON leads(drip_status, drip_next_at)',
     'CREATE INDEX IF NOT EXISTS idx_leads_unsub ON leads(unsub_token)',
+    // Cabin availability: 'booked' (has guests) or 'available' (open to sell).
+    "ALTER TABLE cabins ADD COLUMN status TEXT NOT NULL DEFAULT 'booked'",
   ];
   for (const sql of migrations) {
     try {
@@ -275,15 +277,15 @@ export async function listDripDue(db, now, limit = 50) {
 }
 
 // ---- cabins ----
-const CABIN_FIELDS = ['name', 'res_number', 'cabin_type', 'cabin_number', 'drifter', 'notes', 'tc'];
+const CABIN_FIELDS = ['name', 'res_number', 'cabin_type', 'cabin_number', 'drifter', 'notes', 'tc', 'status'];
 
 export function insertCabin(db, c) {
   return db
     .prepare(
-      `INSERT INTO cabins (id, created_at, name, res_number, cabin_type, cabin_number, drifter, notes, tc)
-       VALUES (?,?,?,?,?,?,?,?,?)`
+      `INSERT INTO cabins (id, created_at, name, res_number, cabin_type, cabin_number, drifter, notes, tc, status)
+       VALUES (?,?,?,?,?,?,?,?,?,?)`
     )
-    .bind(c.id, c.created_at, c.name, c.res_number, c.cabin_type, c.cabin_number, c.drifter, c.notes, c.tc || 0)
+    .bind(c.id, c.created_at, c.name, c.res_number, c.cabin_type, c.cabin_number, c.drifter, c.notes, c.tc || 0, c.status || 'booked')
     .run();
 }
 
@@ -292,6 +294,7 @@ export async function listCabins(db, opts = {}) {
   const args = [];
   if (opts.drifter) { where.push('drifter = ?'); args.push(opts.drifter); }
   if (opts.cabin_type) { where.push('cabin_type = ?'); args.push(opts.cabin_type); }
+  if (opts.status) { where.push('status = ?'); args.push(opts.status); }
   if (opts.q) {
     where.push('(name LIKE ? OR res_number LIKE ? OR cabin_number LIKE ? OR notes LIKE ?)');
     const like = '%' + opts.q + '%';
@@ -318,6 +321,14 @@ export function updateCabin(db, id, fields) {
   cols.push('updated_at = ?');
   args.push(Date.now(), id);
   return db.prepare(`UPDATE cabins SET ${cols.join(', ')} WHERE id = ?`).bind(...args).run();
+}
+
+// Cabin numbers already on the manifest (used by import to skip duplicates).
+export async function listCabinNumbers(db) {
+  const rows = await db
+    .prepare(`SELECT cabin_number FROM cabins WHERE cabin_number IS NOT NULL AND cabin_number <> ''`)
+    .all();
+  return (rows.results || []).map((r) => String(r.cabin_number).trim());
 }
 
 export function deleteCabin(db, id) {

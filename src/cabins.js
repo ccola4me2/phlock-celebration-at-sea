@@ -2,7 +2,7 @@
 // Google Doc). List/save/delete plus a bulk paste-import.
 
 import { requireAdmin } from './auth.js';
-import { ensureSchema, insertCabin, listCabins, updateCabin, deleteCabin } from './db.js';
+import { ensureSchema, insertCabin, listCabins, listCabinNumbers, updateCabin, deleteCabin } from './db.js';
 import { json } from './util.js';
 
 function clip(s, n) {
@@ -14,6 +14,12 @@ function normDrifter(v) {
   if (s.startsWith('new')) return 'New';
   if (s.startsWith('current')) return 'Current';
   return clip(v, 20);
+}
+
+// 'available' = open inventory we can sell; anything else is 'booked'.
+function normStatus(v) {
+  const s = String(v == null ? '' : v).trim().toLowerCase();
+  return s.startsWith('avail') || s === 'open' ? 'available' : 'booked';
 }
 
 function truthy(v) {
@@ -31,6 +37,8 @@ function cabinFromBody(b) {
     drifter: normDrifter(b.drifter),
     notes: clip(b.notes, 2000),
     tc: truthy(b.tc),
+    // Only touch status when the caller sent one (partial saves leave it alone).
+    status: b.status === undefined ? undefined : normStatus(b.status),
   };
 }
 
@@ -42,10 +50,11 @@ export async function handleListCabins(request, env, url) {
   const cabins = await listCabins(env.DB, {
     drifter: q.get('drifter') || undefined,
     cabin_type: q.get('cabin_type') || undefined,
+    status: q.get('status') || undefined,
     q: q.get('q') ? clip(q.get('q'), 80) : undefined,
   });
   if (q.get('format') === 'csv') {
-    const cols = ['cabin_number', 'cabin_type', 'name', 'res_number', 'drifter', 'notes'];
+    const cols = ['cabin_number', 'cabin_type', 'status', 'name', 'res_number', 'drifter', 'notes'];
     const esc = (v) => {
       const s = String(v == null ? '' : v);
       return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
@@ -108,7 +117,11 @@ export async function handleClearCabins(request, env) {
   return json({ ok: true });
 }
 
-// Bulk import: { rows: [{name,res_number,cabin_type,cabin_number,drifter,notes}], replace?:bool }
+// Bulk import: { rows: [{name,res_number,cabin_type,cabin_number,drifter,notes}],
+//   replace?: bool          wipe the list first
+//   status?: 'booked'|'available'   applied to every imported row (default booked)
+//   skipExisting?: bool     skip rows whose cabin # is already on the list, so
+//                           loading open inventory never overwrites a booking
 export async function handleImportCabins(request, env) {
   const admin = await requireAdmin(request, env);
   if (!admin) return json({ error: 'unauthorized' }, 401);
@@ -125,12 +138,21 @@ export async function handleImportCabins(request, env) {
   if (body.replace) {
     await env.DB.prepare('DELETE FROM cabins').run();
   }
+  const status = normStatus(body.status);
+  const existing = new Set(body.skipExisting && !body.replace ? await listCabinNumbers(env.DB) : []);
   let added = 0;
+  let skipped = 0;
   for (const r of rows) {
     const f = cabinFromBody(r);
     if (!f.name && !f.cabin_number && !f.res_number) continue; // skip blank rows
+    if (f.cabin_number && existing.has(f.cabin_number)) {
+      skipped++;
+      continue;
+    }
+    f.status = status;
     await insertCabin(env.DB, Object.assign({ id: crypto.randomUUID(), created_at: Date.now() }, f));
+    if (f.cabin_number) existing.add(f.cabin_number);
     added++;
   }
-  return json({ ok: true, added });
+  return json({ ok: true, added, skipped });
 }
