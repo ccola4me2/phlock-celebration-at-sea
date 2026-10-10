@@ -22,6 +22,7 @@ import {
   handleClearCabins,
   handleBulkCabinStatus,
   handleBulkUpdateCabins,
+  handleRenameCabinType,
 } from './cabins.js';
 import { handleUnsubscribe, handleDripAdmin, runDrip } from './drip.js';
 import { ensureSchema, insertVisit } from './db.js';
@@ -118,6 +119,8 @@ export default {
       return handleBulkCabinStatus(request, env);
     if (path === '/api/admin/cabins/bulk-update' && request.method === 'POST')
       return handleBulkUpdateCabins(request, env);
+    if (path === '/api/admin/cabins/rename-type' && request.method === 'POST')
+      return handleRenameCabinType(request, env);
     // Drip campaign: public unsubscribe + admin preview/test/run/start-stop.
     if (path === '/unsubscribe') return handleUnsubscribe(request, env, url);
     if (path === '/api/admin/leads/drip' || path.startsWith('/api/admin/drip/'))

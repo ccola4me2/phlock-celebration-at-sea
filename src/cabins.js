@@ -2,7 +2,7 @@
 // Google Doc). List/save/delete plus a bulk paste-import.
 
 import { requireAdmin } from './auth.js';
-import { ensureSchema, insertCabin, listCabins, listCabinNumbers, updateCabin, updateCabinsByNumber, deleteCabin, setStatusForUnnamed } from './db.js';
+import { ensureSchema, insertCabin, listCabins, listCabinNumbers, updateCabin, updateCabinsByNumber, deleteCabin, setStatusForUnnamed, renameCabinType } from './db.js';
 import { json } from './util.js';
 
 function clip(s, n) {
@@ -162,6 +162,25 @@ export async function handleBulkUpdateCabins(request, env) {
   if (!Object.keys(f).length) return json({ error: 'no_fields' }, 400);
   const r = await updateCabinsByNumber(env.DB, nums, f);
   return json({ ok: true, updated: r.updated, not_found: r.notFound });
+}
+
+// Rename a cabin type everywhere: { from: 'Grand Suite / Master Navigator', to: 'Grand Terrace Suite' }
+export async function handleRenameCabinType(request, env) {
+  const admin = await requireAdmin(request, env);
+  if (!admin) return json({ error: 'unauthorized' }, 401);
+  await ensureSchema(env.DB);
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: 'bad_request' }, 400);
+  }
+  const from = clip(body.from, 60);
+  const to = clip(body.to, 60);
+  if (!from || !to) return json({ error: 'missing_fields' }, 400);
+  if (from === to) return json({ ok: true, updated: 0 });
+  const updated = await renameCabinType(env.DB, from, to);
+  return json({ ok: true, updated });
 }
 
 export async function handleClearCabins(request, env) {

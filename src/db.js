@@ -346,6 +346,15 @@ export async function updateCabinsByNumber(db, numbers, fields) {
   return { updated, notFound };
 }
 
+// Rename a cabin type across the whole manifest. Returns rows changed.
+export async function renameCabinType(db, from, to) {
+  const r = await db
+    .prepare('UPDATE cabins SET cabin_type = ?, updated_at = ? WHERE cabin_type = ?')
+    .bind(to, Date.now(), from)
+    .run();
+  return (r.meta && r.meta.changes) || 0;
+}
+
 // Flip every cabin that has no guests (blank name) to the given status.
 // Returns how many rows changed. Cabins with a name are never touched.
 export async function setStatusForUnnamed(db, status) {

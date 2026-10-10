@@ -102,7 +102,6 @@
 <datalist id="cabinTypes">
   <option value="Interior"></option><option value="Ocean View"></option><option value="Balcony"></option>
   <option value="Wake Balcony"></option><option value="Junior Suite"></option><option value="Grand Suite"></option>
-  <option value="Master Navigator"></option>
   <option value="Cozy Interior"></option><option value="Picturesque Oceanview"></option><option value="Breezy Balcony"></option>
   <option value="Wake View Balcony"></option><option value="Junior Corner Suite"></option><option value="Grand Terrace Suite"></option>
   <option value="Cozy Interior Quad"></option><option value="Breezy Balcony Quad"></option>
@@ -127,6 +126,17 @@
       <button class="a-btn" id="bulkGo" type="button">Apply</button>
       <button class="a-btn a-btn-ghost" id="bulkCancel" type="button">Cancel</button>
       <span class="a-msg" id="bulkMsg" hidden></span>
+    </div>
+    <hr style="border:none;border-top:1px solid var(--a-line);margin:1.3rem 0 1rem;">
+    <h3 style="margin:0 0 0.3rem;font-size:1rem;">Rename a cabin type everywhere</h3>
+    <p class="a-hint" style="margin-top:0;">Changes every cabin of one type to another, booked or available. Handy for tidying old labels.</p>
+    <div class="a-grid a-grid-2">
+      <label class="a-field"><span>From</span><select class="a-input" id="renameFrom"></select></label>
+      <label class="a-field"><span>To</span><select class="a-input" id="renameTo"></select></label>
+    </div>
+    <div style="display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap;">
+      <button class="a-btn a-btn-ghost" id="renameGo" type="button">Rename</button>
+      <span class="a-msg" id="renameMsg" hidden></span>
     </div>
   </div>
 </div>
@@ -392,7 +402,28 @@
     var cur = $('bulkType').value;
     $('bulkType').innerHTML = '<option value="">leave unchanged</option>' + types.map(function (t) { return '<option' + (t === cur ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('');
   }
-  $('bulkBtn').onclick = function () { fillBulkTypes(); $('bulkMsg').hidden = true; $('bulkModal').style.display = 'flex'; };
+  function fillRenameTypes() {
+    var known = [...document.querySelectorAll('#cabinTypes option')].map(function (o) { return o.value; });
+    var used = [...new Set(allCabins.map(function (c) { return c.cabin_type; }).filter(Boolean))].sort();
+    var all = [...new Set(known.concat(used))].sort();
+    $('renameFrom').innerHTML = '<option value="">choose a type in use</option>' + used.map(function (t) { return '<option>' + esc(t) + '</option>'; }).join('');
+    $('renameTo').innerHTML = '<option value="">choose the new name</option>' + all.map(function (t) { return '<option>' + esc(t) + '</option>'; }).join('');
+  }
+  $('bulkBtn').onclick = function () { fillBulkTypes(); fillRenameTypes(); $('bulkMsg').hidden = true; $('renameMsg').hidden = true; $('bulkModal').style.display = 'flex'; };
+  $('renameGo').onclick = async function () {
+    var from = $('renameFrom').value, to = $('renameTo').value, m = $('renameMsg');
+    if (!from || !to) { m.hidden = false; m.className = 'a-msg err'; m.textContent = 'Pick both a From and a To type.'; return; }
+    if (from === to) { m.hidden = false; m.className = 'a-msg err'; m.textContent = 'Those are the same type.'; return; }
+    var n = allCabins.filter(function (c) { return c.cabin_type === from; }).length;
+    if (!confirm('Rename ' + n + ' cabin' + (n === 1 ? '' : 's') + ' from "' + from + '" to "' + to + '"?')) return;
+    var res = await fetch('/api/admin/cabins/rename-type', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from: from, to: to }),
+    });
+    var d = await res.json().catch(function () { return {}; });
+    m.hidden = false; m.className = 'a-msg ' + (res.ok ? 'ok' : 'err');
+    m.textContent = res.ok ? 'Renamed ' + d.updated + ' cabin' + (d.updated === 1 ? '' : 's') + ' ✓' : 'Could not rename. Please try again.';
+    if (res.ok) { await load(); fillBulkTypes(); fillRenameTypes(); }
+  };
   $('bulkCancel').onclick = function () { $('bulkModal').style.display = 'none'; };
   $('bulkModal').addEventListener('click', function (e) { if (e.target === $('bulkModal')) $('bulkModal').style.display = 'none'; });
   $('bulkGo').onclick = async function () {
