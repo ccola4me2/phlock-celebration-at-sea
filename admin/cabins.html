@@ -115,7 +115,9 @@
     <p class="a-hint">Paste cabin numbers (one per line, or separated by commas or spaces), then set what to change. Anything left blank stays as it is. Names and reservation numbers are never changed here.</p>
     <label class="a-field"><span>Cabin numbers</span><textarea class="a-input" id="bulkNumbers" rows="6" placeholder="7368&#10;7371&#10;7376"></textarea></label>
     <div class="a-grid a-grid-2">
-      <label class="a-field"><span>Set cabin type</span><input class="a-input" id="bulkType" list="cabinTypes" placeholder="leave unchanged"></label>
+      <label class="a-field"><span>Set cabin type</span>
+        <select class="a-input" id="bulkType"><option value="">leave unchanged</option></select>
+      </label>
       <label class="a-field"><span>Set status</span>
         <select class="a-input" id="bulkStatus"><option value="">leave unchanged</option><option value="available">Available (open to book)</option><option value="booked">Booked (has guests)</option></select>
       </label>
@@ -382,7 +384,15 @@
   };
 
   // ---- Bulk update by cabin number ----
-  $('bulkBtn').onclick = function () { $('bulkMsg').hidden = true; $('bulkModal').style.display = 'flex'; };
+  // Real dropdown: every known type (datalist) plus any type already in use.
+  function fillBulkTypes() {
+    var known = [...document.querySelectorAll('#cabinTypes option')].map(function (o) { return o.value; });
+    var used = allCabins.map(function (c) { return c.cabin_type; }).filter(Boolean);
+    var types = [...new Set(known.concat(used))].sort();
+    var cur = $('bulkType').value;
+    $('bulkType').innerHTML = '<option value="">leave unchanged</option>' + types.map(function (t) { return '<option' + (t === cur ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('');
+  }
+  $('bulkBtn').onclick = function () { fillBulkTypes(); $('bulkMsg').hidden = true; $('bulkModal').style.display = 'flex'; };
   $('bulkCancel').onclick = function () { $('bulkModal').style.display = 'none'; };
   $('bulkModal').addEventListener('click', function (e) { if (e.target === $('bulkModal')) $('bulkModal').style.display = 'none'; });
   $('bulkGo').onclick = async function () {
