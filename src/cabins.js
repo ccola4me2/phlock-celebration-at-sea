@@ -2,7 +2,7 @@
 // Google Doc). List/save/delete plus a bulk paste-import.
 
 import { requireAdmin } from './auth.js';
-import { ensureSchema, insertCabin, listCabins, listCabinNumbers, updateCabin, deleteCabin, setStatusForUnnamed } from './db.js';
+import { ensureSchema, insertCabin, listCabins, listCabinNumbers, updateCabin, updateCabinsByNumber, deleteCabin, setStatusForUnnamed } from './db.js';
 import { json } from './util.js';
 
 function clip(s, n) {
@@ -133,6 +133,35 @@ export async function handleBulkCabinStatus(request, env) {
   if (body.only !== 'unnamed') return json({ error: 'bad_scope' }, 400);
   const updated = await setStatusForUnnamed(env.DB, normStatus(body.status));
   return json({ ok: true, updated });
+}
+
+// Bulk update by cabin number:
+//   { cabin_numbers: ['7368', ...], cabin_type?, status?, notes?, drifter? }
+// Only the fields sent are changed. Names, reservation numbers, cabin numbers
+// and the TC flag are deliberately not editable here.
+export async function handleBulkUpdateCabins(request, env) {
+  const admin = await requireAdmin(request, env);
+  if (!admin) return json({ error: 'unauthorized' }, 401);
+  await ensureSchema(env.DB);
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: 'bad_request' }, 400);
+  }
+  const nums = Array.isArray(body.cabin_numbers)
+    ? [...new Set(body.cabin_numbers.map((n) => clip(n, 20)).filter(Boolean))]
+    : [];
+  if (!nums.length) return json({ error: 'no_numbers' }, 400);
+  if (nums.length > 500) return json({ error: 'too_many' }, 400);
+  const f = cabinFromBody(body, true);
+  delete f.name;
+  delete f.res_number;
+  delete f.cabin_number;
+  delete f.tc;
+  if (!Object.keys(f).length) return json({ error: 'no_fields' }, 400);
+  const r = await updateCabinsByNumber(env.DB, nums, f);
+  return json({ ok: true, updated: r.updated, not_found: r.notFound });
 }
 
 export async function handleClearCabins(request, env) {

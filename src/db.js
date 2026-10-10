@@ -323,6 +323,29 @@ export function updateCabin(db, id, fields) {
   return db.prepare(`UPDATE cabins SET ${cols.join(', ')} WHERE id = ?`).bind(...args).run();
 }
 
+// Apply the same field changes to every cabin whose number is in `numbers`.
+// Returns how many rows changed and which numbers matched nothing.
+export async function updateCabinsByNumber(db, numbers, fields) {
+  const cols = [];
+  const args = [];
+  for (const k of CABIN_FIELDS) {
+    if (fields[k] !== undefined) { cols.push(`${k} = ?`); args.push(fields[k]); }
+  }
+  if (!cols.length) return { updated: 0, notFound: numbers };
+  cols.push('updated_at = ?');
+  args.push(Date.now());
+  const stmt = db.prepare(`UPDATE cabins SET ${cols.join(', ')} WHERE TRIM(cabin_number) = ?`);
+  let updated = 0;
+  const notFound = [];
+  for (const n of numbers) {
+    const r = await stmt.bind(...args, n).run();
+    const changed = (r.meta && r.meta.changes) || 0;
+    if (changed) updated += changed;
+    else notFound.push(n);
+  }
+  return { updated, notFound };
+}
+
 // Flip every cabin that has no guests (blank name) to the given status.
 // Returns how many rows changed. Cabins with a name are never touched.
 export async function setStatusForUnnamed(db, status) {

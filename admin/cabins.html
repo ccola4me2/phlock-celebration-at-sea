@@ -43,6 +43,7 @@
       </label>
       <button class="a-btn" id="addBtn" type="button">+ Add Cabin</button>
       <button class="a-btn a-btn-ghost" id="importBtn" type="button">Import</button>
+      <button class="a-btn a-btn-ghost" id="bulkBtn" type="button">Bulk Update</button>
       <a class="a-btn a-btn-ghost" id="csvBtn" href="/api/admin/cabins?format=csv" download>Export CSV</a>
     </div>
   </div>
@@ -104,7 +105,29 @@
   <option value="Master Navigator"></option>
   <option value="Cozy Interior"></option><option value="Picturesque Oceanview"></option><option value="Breezy Balcony"></option>
   <option value="Wake View Balcony"></option><option value="Junior Corner Suite"></option><option value="Grand Terrace Suite"></option>
+  <option value="Cozy Interior Quad"></option><option value="Breezy Balcony Quad"></option>
 </datalist>
+
+<!-- Bulk update modal -->
+<div id="bulkModal" style="display:none;position:fixed;inset:0;z-index:100;background:rgba(6,15,28,0.6);align-items:flex-start;justify-content:center;overflow-y:auto;padding:2rem 1rem;">
+  <div class="a-card" style="width:100%;max-width:560px;">
+    <h2 style="margin-top:0;">Bulk Update Cabins</h2>
+    <p class="a-hint">Paste cabin numbers (one per line, or separated by commas or spaces), then set what to change. Anything left blank stays as it is. Names and reservation numbers are never changed here.</p>
+    <label class="a-field"><span>Cabin numbers</span><textarea class="a-input" id="bulkNumbers" rows="6" placeholder="7368&#10;7371&#10;7376"></textarea></label>
+    <div class="a-grid a-grid-2">
+      <label class="a-field"><span>Set cabin type</span><input class="a-input" id="bulkType" list="cabinTypes" placeholder="leave unchanged"></label>
+      <label class="a-field"><span>Set status</span>
+        <select class="a-input" id="bulkStatus"><option value="">leave unchanged</option><option value="available">Available (open to book)</option><option value="booked">Booked (has guests)</option></select>
+      </label>
+      <label class="a-field" style="grid-column:1/-1;"><span>Set notes</span><input class="a-input" id="bulkNotes" placeholder="leave unchanged"></label>
+    </div>
+    <div style="display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap;">
+      <button class="a-btn" id="bulkGo" type="button">Apply</button>
+      <button class="a-btn a-btn-ghost" id="bulkCancel" type="button">Cancel</button>
+      <span class="a-msg" id="bulkMsg" hidden></span>
+    </div>
+  </div>
+</div>
 
 <!-- Import modal -->
 <div id="importModal" style="display:none;position:fixed;inset:0;z-index:100;background:rgba(6,15,28,0.6);align-items:flex-start;justify-content:center;overflow-y:auto;padding:2rem 1rem;">
@@ -356,6 +379,31 @@
     m.hidden = false; m.className = 'a-msg ' + (res.ok ? 'ok' : 'err');
     m.textContent = res.ok ? 'Marked ' + d.updated + ' cabins Available ✓' : 'Could not update. Please try again.';
     if (res.ok) setTimeout(function () { $('importModal').style.display = 'none'; load(); }, 1000);
+  };
+
+  // ---- Bulk update by cabin number ----
+  $('bulkBtn').onclick = function () { $('bulkMsg').hidden = true; $('bulkModal').style.display = 'flex'; };
+  $('bulkCancel').onclick = function () { $('bulkModal').style.display = 'none'; };
+  $('bulkModal').addEventListener('click', function (e) { if (e.target === $('bulkModal')) $('bulkModal').style.display = 'none'; });
+  $('bulkGo').onclick = async function () {
+    var nums = $('bulkNumbers').value.split(/[\s,;|]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+    var m = $('bulkMsg');
+    var body = { cabin_numbers: nums };
+    if ($('bulkType').value.trim()) body.cabin_type = $('bulkType').value.trim();
+    if ($('bulkStatus').value) body.status = $('bulkStatus').value;
+    if ($('bulkNotes').value.trim()) body.notes = $('bulkNotes').value.trim();
+    if (!nums.length) { m.hidden = false; m.className = 'a-msg err'; m.textContent = 'Paste at least one cabin number.'; return; }
+    if (!body.cabin_type && !body.status && !body.notes) { m.hidden = false; m.className = 'a-msg err'; m.textContent = 'Choose something to change.'; return; }
+    if (!confirm('Update ' + nums.length + ' cabin' + (nums.length === 1 ? '' : 's') + '?')) return;
+    var res = await fetch('/api/admin/cabins/bulk-update', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    });
+    var d = await res.json().catch(function () { return {}; });
+    m.hidden = false; m.className = 'a-msg ' + (res.ok ? 'ok' : 'err');
+    m.textContent = res.ok
+      ? 'Updated ' + d.updated + ' cabin' + (d.updated === 1 ? '' : 's') + ' ✓' + (d.not_found && d.not_found.length ? ' · not on the list: ' + d.not_found.join(', ') : '')
+      : 'Could not update. Please try again.';
+    if (res.ok) load();
   };
 
   // Filters

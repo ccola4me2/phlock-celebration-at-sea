@@ -21,6 +21,7 @@ import {
   handleImportCabins,
   handleClearCabins,
   handleBulkCabinStatus,
+  handleBulkUpdateCabins,
 } from './cabins.js';
 import { handleUnsubscribe, handleDripAdmin, runDrip } from './drip.js';
 import { ensureSchema, insertVisit } from './db.js';
@@ -115,6 +116,8 @@ export default {
       return handleClearCabins(request, env);
     if (path === '/api/admin/cabins/bulk-status' && request.method === 'POST')
       return handleBulkCabinStatus(request, env);
+    if (path === '/api/admin/cabins/bulk-update' && request.method === 'POST')
+      return handleBulkUpdateCabins(request, env);
     // Drip campaign: public unsubscribe + admin preview/test/run/start-stop.
     if (path === '/unsubscribe') return handleUnsubscribe(request, env, url);
     if (path === '/api/admin/leads/drip' || path.startsWith('/api/admin/drip/'))
