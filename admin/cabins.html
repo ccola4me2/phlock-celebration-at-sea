@@ -41,10 +41,13 @@
       <label class="a-field" style="margin:0;flex:1;min-width:160px;"><span>Search name / res # / cabin #</span>
         <input class="a-input" id="fSearch" type="search" placeholder="Search&hellip;">
       </label>
-      <button class="a-btn" id="addBtn" type="button">+ Add Cabin</button>
-      <button class="a-btn a-btn-ghost" id="importBtn" type="button">Import</button>
-      <button class="a-btn a-btn-ghost" id="bulkBtn" type="button">Bulk Update</button>
       <a class="a-btn a-btn-ghost" id="csvBtn" href="/api/admin/cabins?format=csv" download>Export CSV</a>
+      <button class="a-btn a-btn-ghost" id="advToggle" type="button" title="Show the list-management tools (add, import, bulk update, delete)">Manage list &#9662;</button>
+      <span id="advTools" style="display:none;gap:0.6rem;flex-wrap:wrap;align-items:center;">
+        <button class="a-btn" id="addBtn" type="button">+ Add Cabin</button>
+        <button class="a-btn a-btn-ghost" id="importBtn" type="button">Import</button>
+        <button class="a-btn a-btn-ghost" id="bulkBtn" type="button">Bulk Update</button>
+      </span>
     </div>
   </div>
 
@@ -208,12 +211,18 @@
         '<td>' + esc(c.drifter) + '</td>' +
         '<td>' + (c.tc ? '<span style="background:var(--a-gold);color:var(--a-navy);font-size:0.68rem;font-weight:700;letter-spacing:0.04em;padding:0.15em 0.5em;border-radius:999px;">TC</span>' : '') + '</td>' +
         '<td style="font-size:0.85rem;color:var(--a-soft);max-width:280px;">' + esc(c.notes) + '</td>' +
-        '<td style="white-space:nowrap;"><button class="a-btn a-btn-ghost" data-edit="' + c.id + '" style="padding:0.35em 0.7em;">Edit</button> ' +
-        '<button class="a-btn a-btn-ghost" data-del="' + c.id + '" style="padding:0.35em 0.7em;color:var(--a-red);border-color:var(--a-red);">×</button></td>';
+        '<td style="white-space:nowrap;">' +
+        (c.status === 'available' ? '<button class="a-btn" data-book="' + c.id + '" style="padding:0.35em 0.8em;">Add booking</button> ' : '') +
+        '<button class="a-btn a-btn-ghost" data-edit="' + c.id + '" style="padding:0.35em 0.7em;">Edit</button>' +
+        (advanced ? ' <button class="a-btn a-btn-ghost" data-del="' + c.id + '" style="padding:0.35em 0.7em;color:var(--a-red);border-color:var(--a-red);" title="Delete this cabin from the list">×</button>' : '') +
+        '</td>';
       tb.appendChild(tr);
     });
     tb.querySelectorAll('[data-edit]').forEach(function (b) {
       b.onclick = function () { openEdit(cabins.find(function (x) { return x.id === b.getAttribute('data-edit'); })); };
+    });
+    tb.querySelectorAll('[data-book]').forEach(function (b) {
+      b.onclick = function () { openEdit(cabins.find(function (x) { return x.id === b.getAttribute('data-book'); }), true); };
     });
     tb.querySelectorAll('[data-del]').forEach(function (b) {
       b.onclick = async function () {
@@ -308,15 +317,16 @@
     if (v === '__other') { $('e-cabin_type').value = ''; $('e-cabin_type').hidden = false; $('e-cabin_type').focus(); }
     else { $('e-cabin_type').value = v; $('e-cabin_type').hidden = true; }
   });
-  function openEdit(c) {
+  function openEdit(c, book) {
     c = c || {};
-    $('editTitle').textContent = c.id ? 'Edit Cabin' : 'Add Cabin';
+    $('editTitle').textContent = book ? 'Book Cabin ' + (c.cabin_number || '') : (c.id ? 'Edit Cabin' : 'Add Cabin');
     $('e-id').value = c.id || '';
     ['name', 'cabin_number', 'cabin_type', 'res_number', 'drifter', 'notes'].forEach(function (k) { $('e-' + k).value = c[k] || ''; });
     $('e-tc').checked = !!c.tc;
     fillEditTypes(c.cabin_type || '');
-    $('e-status').value = c.status === 'available' ? 'available' : 'booked';
+    $('e-status').value = book ? 'booked' : (c.status === 'available' ? 'available' : 'booked');
     $('editModal').style.display = 'flex';
+    if (book) setTimeout(function () { $('e-name').focus(); }, 50);
   }
   $('addBtn').onclick = function () { openEdit(null); };
   $('cancelBtn').onclick = function () { $('editModal').style.display = 'none'; };
@@ -464,6 +474,23 @@
       : 'Could not update. Please try again.';
     if (res.ok) load();
   };
+
+  // ---- Manage-list tools (add / import / bulk update / delete) ----
+  // Hidden by default so everyday booking can't accidentally add, import, or
+  // delete. The toggle is remembered for this browser tab only.
+  var advanced = false;
+  try { advanced = sessionStorage.getItem('phcCabinsManage') === '1'; } catch (e) { /* storage blocked */ }
+  function applyAdvanced() {
+    $('advTools').style.display = advanced ? 'inline-flex' : 'none';
+    $('advToggle').innerHTML = advanced ? 'Hide tools &#9652;' : 'Manage list &#9662;';
+  }
+  $('advToggle').onclick = function () {
+    advanced = !advanced;
+    try { sessionStorage.setItem('phcCabinsManage', advanced ? '1' : '0'); } catch (e) { /* storage blocked */ }
+    applyAdvanced();
+    applyFilters();
+  };
+  applyAdvanced();
 
   // Filters
   $('fDrifter').onchange = applyFilters;
