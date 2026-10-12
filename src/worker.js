@@ -139,8 +139,16 @@ export default {
     }
 
     // ---- Serve static asset ----
-    const response = await env.ASSETS.fetch(request);
+    let response = await env.ASSETS.fetch(request);
     const setCookies = [];
+
+    // Admin console pages change often and sit behind a login: never let the
+    // browser or the edge serve a stale copy.
+    if (isAdminArea(path) || path === '/admin/login' || path === '/admin/login.html') {
+      const h = new Headers(response.headers);
+      h.set('Cache-Control', 'no-store, private');
+      response = new Response(response.body, { status: response.status, headers: h });
+    }
 
     // First-touch domain/source attribution cookie (used by the GHL form).
     const src = url.searchParams.get('src') || url.searchParams.get('utm_source');
