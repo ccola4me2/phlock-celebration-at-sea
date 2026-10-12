@@ -99,9 +99,10 @@
       </label>
       <label class="a-field" style="grid-column:1/-1;"><span>Notes (deposit, relationship, etc.)</span><textarea class="a-input" id="e-notes" rows="3"></textarea></label>
     </div>
-    <div style="margin-top:1rem;display:flex;gap:0.6rem;">
+    <div style="margin-top:1rem;display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap;">
       <button class="a-btn" id="saveBtn" type="button">Save</button>
       <button class="a-btn a-btn-ghost" id="cancelBtn" type="button">Cancel</button>
+      <button class="a-btn a-btn-ghost" id="deleteBtn" type="button" style="margin-left:auto;color:var(--a-red);border-color:var(--a-red);display:none;" title="Remove this cabin from the list entirely">Delete cabin</button>
     </div>
   </div>
 </div>
@@ -214,7 +215,6 @@
         '<td style="white-space:nowrap;">' +
         (c.status === 'available' ? '<button class="a-btn" data-book="' + c.id + '" style="padding:0.35em 0.8em;">Add booking</button> ' : '') +
         '<button class="a-btn a-btn-ghost" data-edit="' + c.id + '" style="padding:0.35em 0.7em;">Edit</button>' +
-        (advanced ? ' <button class="a-btn a-btn-ghost" data-del="' + c.id + '" style="padding:0.35em 0.7em;color:var(--a-red);border-color:var(--a-red);" title="Delete this cabin from the list">×</button>' : '') +
         '</td>';
       tb.appendChild(tr);
     });
@@ -223,12 +223,6 @@
     });
     tb.querySelectorAll('[data-book]').forEach(function (b) {
       b.onclick = function () { openEdit(cabins.find(function (x) { return x.id === b.getAttribute('data-book'); }), true); };
-    });
-    tb.querySelectorAll('[data-del]').forEach(function (b) {
-      b.onclick = async function () {
-        if (!confirm('Delete this cabin assignment?')) return;
-        if (await api('/api/admin/cabins/delete', { id: b.getAttribute('data-del') })) load();
-      };
     });
   }
 
@@ -325,11 +319,19 @@
     $('e-tc').checked = !!c.tc;
     fillEditTypes(c.cabin_type || '');
     $('e-status').value = book ? 'booked' : (c.status === 'available' ? 'available' : 'booked');
+    $('deleteBtn').style.display = c.id ? 'inline-block' : 'none';
     $('editModal').style.display = 'flex';
     if (book) setTimeout(function () { $('e-name').focus(); }, 50);
   }
   $('addBtn').onclick = function () { openEdit(null); };
   $('cancelBtn').onclick = function () { $('editModal').style.display = 'none'; };
+  $('deleteBtn').onclick = async function () {
+    var id = $('e-id').value;
+    if (!id) return;
+    var label = $('e-cabin_number').value ? 'cabin ' + $('e-cabin_number').value : 'this cabin';
+    if (!confirm('Delete ' + label + ' from the list? This cannot be undone.')) return;
+    if (await api('/api/admin/cabins/delete', { id: id })) { $('editModal').style.display = 'none'; load(); }
+  };
   // Typing a name into an Available cabin flips it to Booked automatically.
   $('e-name').addEventListener('input', function () {
     if ($('e-status').value === 'available' && $('e-name').value.trim()) $('e-status').value = 'booked';
