@@ -80,7 +80,10 @@
     <div class="a-grid a-grid-2">
       <label class="a-field" style="grid-column:1/-1;"><span>Name(s)</span><input class="a-input" id="e-name" placeholder="e.g. Lori Judd &amp; guest"></label>
       <label class="a-field"><span>Cabin #</span><input class="a-input" id="e-cabin_number"></label>
-      <label class="a-field"><span>Cabin Type</span><input class="a-input" id="e-cabin_type" list="cabinTypes"></label>
+      <label class="a-field"><span>Cabin Type</span>
+        <select class="a-input" id="e-cabin_type_sel"></select>
+        <input class="a-input" id="e-cabin_type" placeholder="Type the new cabin type" style="margin-top:0.4rem;" hidden>
+      </label>
       <label class="a-field"><span>Reservation #</span><input class="a-input" id="e-res_number"></label>
       <label class="a-field"><span>Drifter</span>
         <select class="a-input" id="e-drifter"><option value="">—</option><option value="Current">Current</option><option value="New">New</option></select>
@@ -291,12 +294,27 @@
   }
 
   // ---- Add / Edit ----
+  // Cabin Type is a real dropdown (every known type + any in use); "Other" reveals a text box.
+  function fillEditTypes(current) {
+    var known = [...document.querySelectorAll('#cabinTypes option')].map(function (o) { return o.value; });
+    var used = allCabins.map(function (c) { return c.cabin_type; }).filter(Boolean);
+    var types = [...new Set(known.concat(used, current ? [current] : []))].sort();
+    var sel = $('e-cabin_type_sel');
+    sel.innerHTML = '<option value="">choose a type</option>' + types.map(function (t) { return '<option' + (t === current ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('') + '<option value="__other">Other (type it in)</option>';
+    $('e-cabin_type').hidden = true;
+  }
+  $('e-cabin_type_sel').addEventListener('change', function () {
+    var v = $('e-cabin_type_sel').value;
+    if (v === '__other') { $('e-cabin_type').value = ''; $('e-cabin_type').hidden = false; $('e-cabin_type').focus(); }
+    else { $('e-cabin_type').value = v; $('e-cabin_type').hidden = true; }
+  });
   function openEdit(c) {
     c = c || {};
     $('editTitle').textContent = c.id ? 'Edit Cabin' : 'Add Cabin';
     $('e-id').value = c.id || '';
     ['name', 'cabin_number', 'cabin_type', 'res_number', 'drifter', 'notes'].forEach(function (k) { $('e-' + k).value = c[k] || ''; });
     $('e-tc').checked = !!c.tc;
+    fillEditTypes(c.cabin_type || '');
     $('e-status').value = c.status === 'available' ? 'available' : 'booked';
     $('editModal').style.display = 'flex';
   }
