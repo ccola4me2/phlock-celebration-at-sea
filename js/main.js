@@ -22,6 +22,30 @@ if (navToggle && navLinks) {
   });
 }
 
+// Nav dropdown groups: CSS opens them on hover; this handles click/tap, closes
+// on an outside click, and lights up a group whose child is the current page.
+const closeMenus = (except) => {
+  document.querySelectorAll('.has-menu.is-open').forEach((item) => {
+    if (item === except) return;
+    item.classList.remove('is-open');
+    const b = item.querySelector('.nav-menu-btn');
+    if (b) b.setAttribute('aria-expanded', 'false');
+  });
+};
+document.querySelectorAll('.has-menu').forEach((item) => {
+  const btn = item.querySelector('.nav-menu-btn');
+  if (!btn) return;
+  if (item.querySelector('.nav-menu a[aria-current="page"]')) item.classList.add('is-active');
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const open = item.classList.toggle('is-open');
+    btn.setAttribute('aria-expanded', String(open));
+    closeMenus(item);
+  });
+});
+document.addEventListener('click', () => closeMenus(null));
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenus(null); });
+
 // FAQ accordion
 document.querySelectorAll('.faq-item').forEach((item) => {
   const question = item.querySelector('.faq-question');

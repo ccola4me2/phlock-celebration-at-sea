@@ -202,23 +202,69 @@ button { font-family: inherit; }
   color: var(--gold);
   font-weight: 600;
 }
-.nav-links { display: flex; align-items: center; gap: var(--space-3); }
-.nav-links a {
+.nav-links { display: flex; align-items: center; gap: 1.25rem; }
+.nav-links a,
+.nav-menu-btn {
   font-weight: 600;
-  font-size: 0.78rem;
-  letter-spacing: 0.14em;
+  font-size: 0.72rem;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
+  white-space: nowrap;
   color: rgba(255,255,255,0.85);
   padding: 0.4em 0;
   border-bottom: 2px solid transparent;
   transition: color 0.15s ease, border-color 0.15s ease;
 }
+/* Dropdown groups in the nav: hover on desktop, click/tap anywhere */
+.nav-item { position: relative; }
+.nav-menu-btn {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+}
+.nav-menu-btn .caret { width: 10px; height: 6px; opacity: 0.7; transition: transform 0.15s ease; }
+.nav-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  left: -1rem;
+  min-width: 210px;
+  background: var(--navy-800);
+  border: 1px solid rgba(201, 165, 69, 0.35);
+  border-radius: 10px;
+  padding: 0.45rem 0;
+  box-shadow: var(--shadow-md);
+  z-index: 60;
+}
+.nav-menu::before { content: ""; position: absolute; top: -10px; left: 0; right: 0; height: 10px; }
+.nav-menu a {
+  display: block;
+  padding: 0.7em 1.1rem;
+  border-bottom: none;
+  letter-spacing: 0.08em;
+  font-size: 0.74rem;
+  white-space: nowrap;
+}
+.nav-menu a:hover,
+.nav-menu a[aria-current="page"] { color: var(--gold-light); background: rgba(255,255,255,0.05); border-bottom: none; }
+.has-menu:hover .nav-menu,
+.has-menu.is-open .nav-menu,
+.has-menu:focus-within .nav-menu { display: block; }
+.has-menu:hover .nav-menu-btn,
+.has-menu.is-open .nav-menu-btn,
+.has-menu.is-active .nav-menu-btn { color: var(--gold-light); border-bottom-color: var(--gold); }
+.has-menu.is-open .caret { transform: rotate(180deg); }
 .nav-links a:hover,
 .nav-links a[aria-current="page"] {
   color: var(--gold-light);
   border-bottom-color: var(--gold);
 }
-.nav-links .btn { border-bottom: none; padding: 0.75em 1.5em; }
+.nav-links .btn { border-bottom: none; padding: 0.7em 1.1em; white-space: nowrap; }
 .nav-links a.btn:hover { color: var(--navy-900); }
 .nav-toggle {
   display: none;
@@ -229,7 +275,8 @@ button { font-family: inherit; }
 }
 .nav-toggle svg { width: 26px; height: 26px; color: var(--gold-light); }
 
-@media (max-width: 980px) {
+/* Seven unwrappable items need ~1120px: below that, the phone menu takes over */
+@media (max-width: 1200px) {
   .nav-links {
     position: absolute;
     top: 100%;
@@ -244,13 +291,20 @@ button { font-family: inherit; }
     overflow: hidden;
     transition: max-height 0.25s ease;
   }
-  .nav-links.is-open { max-height: 480px; }
+  .nav-links.is-open { max-height: 760px; }
   .nav-links a {
     width: 100%;
     padding: 1em var(--space-3);
     border-bottom: 1px solid rgba(255,255,255,0.08);
   }
   .nav-links .btn { margin: var(--space-2) var(--space-3); width: auto; }
+  /* Groups open flat on phones: the label, then its links indented */
+  .nav-item { width: 100%; }
+  .nav-menu-btn { width: 100%; padding: 1em var(--space-3); border-bottom: 1px solid rgba(255,255,255,0.08); justify-content: space-between; }
+  .nav-menu-btn .caret { display: none; }
+  .nav-menu { display: block; position: static; min-width: 0; background: var(--navy-950); border: none; border-radius: 0; padding: 0; box-shadow: none; }
+  .nav-menu::before { display: none; }
+  .nav-menu a { padding-left: calc(var(--space-3) + 1.25rem); white-space: normal; }
   .nav-toggle { display: inline-flex; }
 }
 
