@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Drifters Lounge | Parrothead Day Cruise Admin</title>
+<title>Drifters Dive Bar | Parrothead Day Cruise Admin</title>
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" type="image/png" href="/assets/img/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -16,7 +16,7 @@
     <a href="/admin">Dashboard</a>
     <a href="/admin/leads">Leads</a>
     <a href="/admin/cabins">Cabins</a>
-    <a href="/admin/lounge">Lounge</a>
+    <a href="/admin/lounge">Dive Bar</a>
     <a href="/admin/links">Link Builder</a>
     <a href="/admin/reports">Reports</a>
     <a href="/" target="_blank" rel="noopener">View Site ↗</a>
@@ -25,18 +25,18 @@
 </div>
 
 <div class="a-wrap">
-  <h1 class="a-h1">Drifters Lounge</h1>
+  <h1 class="a-h1">Drifters Dive Bar</h1>
   <p class="a-lede">The private page for booked guests at <a href="/drifters" target="_blank" rel="noopener">parrotheadscruise.com/drifters</a>. Guests sign in with their last name and reservation number from the Cabins list; you're signed in as an admin, so that link previews it without one.</p>
 
   <div class="a-card" style="margin-bottom:1.3rem;">
     <h2 style="margin-top:0;font-size:1.1rem;">Pinned notice &amp; status</h2>
     <div class="a-grid a-grid-2">
-      <label class="a-field" style="grid-column:1/-1;"><span>Pinned notice title (shown at the top of the Lounge)</span><input class="a-input" id="pinTitle" placeholder="e.g. Host hotel and shuttle details are out"></label>
+      <label class="a-field" style="grid-column:1/-1;"><span>Pinned notice title (shown at the top of the Dive Bar)</span><input class="a-input" id="pinTitle" placeholder="e.g. Host hotel and shuttle details are out"></label>
       <label class="a-field" style="grid-column:1/-1;"><span>Pinned notice text</span><textarea class="a-input" id="pinBody" rows="3" placeholder="A couple of sentences. Leave both blank to show a plain welcome."></textarea></label>
     </div>
     <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;">
       <button class="a-btn" id="saveSettings" type="button">Save notice</button>
-      <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.9rem;"><input type="checkbox" id="enabled" checked> Lounge is open to guests (uncheck to close it while you set things up)</label>
+      <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.9rem;"><input type="checkbox" id="enabled" checked> Dive Bar is open to guests (uncheck to close it while you set things up)</label>
       <span class="a-msg" id="settingsMsg" hidden></span>
     </div>
   </div>
@@ -46,7 +46,7 @@
       <h2 style="margin:0;font-size:1.1rem;">News &amp; newsletters</h2>
       <button class="a-btn" type="button" data-add="posts">+ New post</button>
     </div>
-    <p class="a-hint">Shown newest first. Unpublished posts are visible only to admins previewing the Lounge.</p>
+    <p class="a-hint">Shown newest first. Unpublished posts are visible only to admins previewing the Dive Bar.</p>
     <table class="a-table"><thead><tr><th>Date</th><th>Title</th><th>Status</th><th></th></tr></thead><tbody id="tb-posts"></tbody></table>
     <p class="a-hint" id="empty-posts" hidden>No posts yet.</p>
   </div>
@@ -56,7 +56,7 @@
       <h2 style="margin:0;font-size:1.1rem;">Drifters schedule</h2>
       <button class="a-btn" type="button" data-add="events">+ Add event</button>
     </div>
-    <p class="a-hint">Grouped by day on the Lounge. The day label (Pre-cruise, Embarkation, Sea day, Nassau) shows under the date.</p>
+    <p class="a-hint">Grouped by day on the Dive Bar. The day label (Pre-cruise, Embarkation, Sea day, Nassau) shows under the date.</p>
     <table class="a-table"><thead><tr><th>Day</th><th>Time</th><th>Event</th><th>Where / detail</th><th></th></tr></thead><tbody id="tb-events"></tbody></table>
     <p class="a-hint" id="empty-events" hidden>No events yet.</p>
   </div>
@@ -165,7 +165,7 @@
       $('enabled').checked = data.settings.enabled !== '0';
       ['posts', 'events', 'dates', 'links'].forEach(renderType);
     } catch (e) {
-      $('pageMsg').textContent = 'Could not load the Lounge content. Please refresh.'; $('pageMsg').className = 'a-msg err'; $('pageMsg').hidden = false;
+      $('pageMsg').textContent = 'Could not load the Dive Bar content. Please refresh.'; $('pageMsg').className = 'a-msg err'; $('pageMsg').hidden = false;
     }
   }
 
@@ -211,7 +211,7 @@
   };
   $('deleteBtn').onclick = async function () {
     var type = $('e-type').value, id = $('e-id').value;
-    if (!id || !confirm('Delete this ' + TYPES[type].label + ' from the Lounge?')) return;
+    if (!id || !confirm('Delete this ' + TYPES[type].label + ' from the Dive Bar?')) return;
     var res = await fetch('/api/admin/lounge/' + type + '/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id }) });
     if (res.ok) { $('editModal').style.display = 'none'; load(); }
   };

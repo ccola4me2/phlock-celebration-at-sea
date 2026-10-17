@@ -1,17 +1,17 @@
-// The Drifters Lounge: a private page for booked guests at /drifters.
+// The Drifters Dive Bar: a private page for booked guests at /drifters.
 //
 // Guests sign in with their last name and reservation number, matched against
 // the admin's Cabins list (so the manifest stays the source of truth: if you are
 // on it, you can get in). Content (news posts, the schedule, key dates, links,
-// a pinned notice) is edited from the admin Lounge page and stored in D1.
+// a pinned notice) is edited from the admin Dive Bar page and stored in D1.
 //
-//   GET  /drifters              the Lounge, or the sign-in gate
+//   GET  /drifters              the Dive Bar, or the sign-in gate
 //   POST /drifters/login        last_name + res_number (form post)
 //   POST /drifters/logout
 //   GET  /drifters/post/<id>    one news post in full
 //   /api/admin/lounge...        the editor's API (admin only)
 //
-// Signed-in admins see the Lounge without a guest session, for previewing.
+// Signed-in admins see the Dive Bar without a guest session, for previewing.
 
 import { getCurrentUser, isAdmin, requireAdmin } from './auth.js';
 import {
@@ -190,7 +190,7 @@ function head(title) {
 <header class="site-header" id="siteHeader"><nav class="nav container">
   <a href="/" class="brand"><img class="brand-mark" src="/assets/img/logo-drifters.jpg" alt="Parrot Head Drifters logo"><span class="brand-text"><span class="brand-top">International</span><span class="brand-main">Parrothead Day</span><span class="brand-sub">Cruise 2027</span></span></a>
   <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation" aria-expanded="false" aria-controls="navLinks"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
-  <div class="nav-links" id="navLinks"><div class="nav-item has-menu"><button class="nav-menu-btn" type="button" aria-haspopup="true" aria-expanded="false">The Cruise<svg class="caret" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button><div class="nav-menu"><a href="/#experience">Experience</a><a href="/#itinerary">Itinerary</a><a href="/#ship">The Ship</a></div></div><a href="/pricing">Cabins &amp; Pricing</a><a href="/charity">Cruising for Change</a><a href="/faq">FAQ</a><div class="nav-item has-menu"><button class="nav-menu-btn" type="button" aria-haspopup="true" aria-expanded="false">Contact<svg class="caret" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button><div class="nav-menu"><a href="/contact">Contact Us</a><a href="/team">Travel Advisors</a></div></div><a href="/drifters" class="nav-lounge" aria-current="page">Drifters Lounge</a><a href="/contact" class="btn btn-gold">Reserve Your Cabin</a></div>
+  <div class="nav-links" id="navLinks"><div class="nav-item has-menu"><button class="nav-menu-btn" type="button" aria-haspopup="true" aria-expanded="false">The Cruise<svg class="caret" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button><div class="nav-menu"><a href="/#experience">Experience</a><a href="/#itinerary">Itinerary</a><a href="/#ship">The Ship</a></div></div><a href="/pricing">Cabins &amp; Pricing</a><a href="/charity">Cruising for Change</a><a href="/faq">FAQ</a><div class="nav-item has-menu"><button class="nav-menu-btn" type="button" aria-haspopup="true" aria-expanded="false">Contact<svg class="caret" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button><div class="nav-menu"><a href="/contact">Contact Us</a><a href="/team">Travel Advisors</a></div></div><a href="/drifters" class="nav-lounge" aria-current="page">Drifters Dive Bar</a><a href="/contact" class="btn btn-gold">Reserve Your Cabin</a></div>
 </nav></header>
 <main>`;
 }
@@ -198,7 +198,7 @@ function head(title) {
 function foot(who) {
   return `</main>
 <footer class="site-footer"><div class="container"><div class="footer-bottom lg-foot">
-  <span>&copy; 2026&ndash;2027 Prestige Travel Vacations LLC &amp; Turner Travel. The Drifters Lounge is private to booked guests.</span>
+  <span>&copy; 2026&ndash;2027 Prestige Travel Vacations LLC &amp; Turner Travel. The Drifters Dive Bar is private to booked guests.</span>
   ${who ? `<span>Signed in as ${esc(who)} &middot; <form method="post" action="/drifters/logout" style="display:inline"><button type="submit">Sign out</button></form></span>` : ''}
 </div></div></footer>
 <script src="/js/main.js"></script></body></html>`;
@@ -207,23 +207,23 @@ function foot(who) {
 // ---- pages ----
 function gatePage(err, closed) {
   const notice = closed
-    ? '<div class="err">The Lounge isn\'t open yet. Check back soon, or ask Lori, Dawn or Brent.</div>'
+    ? '<div class="err">The Dive Bar isn\'t open yet. Check back soon, or ask Lori, Dawn or Brent.</div>'
     : err === 'nomatch'
       ? '<div class="err">We couldn\'t find that reservation. Check the last name and reservation number on your confirmation, or text Lori, Dawn or Brent.</div>'
       : err === 'missing'
         ? '<div class="err">Please enter both your last name and your reservation number.</div>'
         : '';
-  return head('Drifters Lounge') + `
+  return head('Drifters Dive Bar') + `
 <div class="lg-gate"><div class="lg-card">
   <div class="lock">&#128274;</div>
   <span class="script">Drifters only</span>
-  <h1>The Drifters Lounge</h1>
+  <h1>The Drifters Dive Bar</h1>
   <p>Booked on the 2027 sailing? Sign in with the name and reservation number on your confirmation to see the schedule, news and deadlines.</p>
   ${notice}
   <form method="post" action="/drifters/login" ${closed ? 'hidden' : ''}>
     <label for="ln">Last name</label><input id="ln" name="last_name" autocomplete="family-name" required>
     <label for="rn">Reservation number</label><input id="rn" name="res_number" inputmode="numeric" autocomplete="off" required>
-    <button class="btn btn-gold" type="submit">Enter the Lounge</button>
+    <button class="btn btn-gold" type="submit">Enter the Dive Bar</button>
   </form>
   <p class="help">Any last name on the booking works. Can't find your reservation number? Text Lori (813) 230-7879, Dawn (813) 453-4905 or Brent (561) 777-9911.</p>
 </div></div>` + foot('');
@@ -268,11 +268,11 @@ function loungePage(who, settings, posts, events, dates, links) {
     ? `<div style="display:grid;gap:.7rem;">${links.map((l) => `<a class="lg-doc" href="${esc(l.url)}" target="_blank" rel="noopener"><div class="ic">&#128279;</div><div><b>${esc(l.title)}</b>${l.note ? `<small>${esc(l.note)}</small>` : ''}</div></a>`).join('')}</div>`
     : '<p class="lg-empty">Documents and links will appear here.</p>';
 
-  return head('Drifters Lounge') + `
+  return head('Drifters Dive Bar') + `
 <section class="lg-hero"><div class="container">
   <div>
     <span class="hero-script">Welcome aboard, Drifters</span>
-    <h1>The Drifters Lounge</h1>
+    <h1>The Drifters Dive Bar</h1>
     <p class="hero-lede" style="margin:0;">Everything for our booked PHlock in one place: the schedule, the latest news, the deadlines and the people to call. Private to the 2027 sailing.</p>
     <div class="lg-meta"><span><b>${daysToSail()}</b> days to sail</span><span class="sep"></span><span>June 26 to July 3, 2027</span><span class="sep"></span><span>Margaritaville at Sea Beachcomber</span></div>
   </div>
@@ -301,7 +301,7 @@ ${crewCards()}` + foot(who);
 function postPage(who, post) {
   return head(post.title) + `
 <section><div class="container lg-article">
-  <p><a href="/drifters">&larr; Back to the Lounge</a></p>
+  <p><a href="/drifters">&larr; Back to the Dive Bar</a></p>
   <span class="date">${fmtDate(post.post_date)}</span>
   <h1 style="margin:.3rem 0 1.2rem;">${esc(post.title)}</h1>
   <div class="body">${richText(post.body) || '<p class="lg-empty">This post has no text yet.</p>'}</div>
@@ -310,7 +310,7 @@ function postPage(who, post) {
 
 // ---- public handler ----
 export async function handleLounge(request, env, url) {
-  if (!env.DB) return html('<p>The Lounge is temporarily unavailable.</p>', 503);
+  if (!env.DB) return html('<p>The Dive Bar is temporarily unavailable.</p>', 503);
   await ensureSchema(env.DB);
   const path = url.pathname.replace(/\/+$/, '') || '/drifters';
   const method = request.method.toUpperCase();
@@ -359,7 +359,7 @@ export async function handleLounge(request, env, url) {
   if (postMatch) {
     if (!who || closed) return redirect('/drifters');
     const post = await getLoungeRow(env.DB, 'posts', postMatch[1]);
-    if (!post || (!post.published && !who.admin)) return html(head('Not found') + '<section><div class="container"><p>That post isn\'t available. <a href="/drifters">Back to the Lounge</a></p></div></section>' + foot(who.name), 404);
+    if (!post || (!post.published && !who.admin)) return html(head('Not found') + '<section><div class="container"><p>That post isn\'t available. <a href="/drifters">Back to the Dive Bar</a></p></div></section>' + foot(who.name), 404);
     return html(postPage(who.name, post));
   }
 
