@@ -2,5 +2,6 @@ User-agent: *
 Allow: /
 Disallow: /admin/
 Disallow: /api/
+Disallow: /drifters
 
 Sitemap: https://parrotheadscruise.com/sitemap.xml

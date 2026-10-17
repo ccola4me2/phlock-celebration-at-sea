@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drifters Lounge | Parrothead Day Cruise Admin</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+<div class="a-bar">
+  <a class="a-brand" href="/admin">Parrothead Admin <span>· PHC</span></a>
+  <nav class="a-nav">
+    <a href="/admin">Dashboard</a>
+    <a href="/admin/leads">Leads</a>
+    <a href="/admin/cabins">Cabins</a>
+    <a href="/admin/lounge">Lounge</a>
+    <a href="/admin/links">Link Builder</a>
+    <a href="/admin/reports">Reports</a>
+    <a href="/" target="_blank" rel="noopener">View Site ↗</a>
+  </nav>
+  <div class="a-who" id="aWho"></div>
+</div>
+
+<div class="a-wrap">
+  <h1 class="a-h1">Drifters Lounge</h1>
+  <p class="a-lede">The private page for booked guests at <a href="/drifters" target="_blank" rel="noopener">parrotheadscruise.com/drifters</a>. Guests sign in with their last name and reservation number from the Cabins list; you're signed in as an admin, so that link previews it without one.</p>
+
+  <div class="a-card" style="margin-bottom:1.3rem;">
+    <h2 style="margin-top:0;font-size:1.1rem;">Pinned notice &amp; status</h2>
+    <div class="a-grid a-grid-2">
+      <label class="a-field" style="grid-column:1/-1;"><span>Pinned notice title (shown at the top of the Lounge)</span><input class="a-input" id="pinTitle" placeholder="e.g. Host hotel and shuttle details are out"></label>
+      <label class="a-field" style="grid-column:1/-1;"><span>Pinned notice text</span><textarea class="a-input" id="pinBody" rows="3" placeholder="A couple of sentences. Leave both blank to show a plain welcome."></textarea></label>
+    </div>
+    <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;">
+      <button class="a-btn" id="saveSettings" type="button">Save notice</button>
+      <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.9rem;"><input type="checkbox" id="enabled" checked> Lounge is open to guests (uncheck to close it while you set things up)</label>
+      <span class="a-msg" id="settingsMsg" hidden></span>
+    </div>
+  </div>
+
+  <div class="a-card" style="margin-bottom:1.3rem;" data-type="posts">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
+      <h2 style="margin:0;font-size:1.1rem;">News &amp; newsletters</h2>
+      <button class="a-btn" type="button" data-add="posts">+ New post</button>
+    </div>
+    <p class="a-hint">Shown newest first. Unpublished posts are visible only to admins previewing the Lounge.</p>
+    <table class="a-table"><thead><tr><th>Date</th><th>Title</th><th>Status</th><th></th></tr></thead><tbody id="tb-posts"></tbody></table>
+    <p class="a-hint" id="empty-posts" hidden>No posts yet.</p>
+  </div>
+
+  <div class="a-card" style="margin-bottom:1.3rem;" data-type="events">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
+      <h2 style="margin:0;font-size:1.1rem;">Drifters schedule</h2>
+      <button class="a-btn" type="button" data-add="events">+ Add event</button>
+    </div>
+    <p class="a-hint">Grouped by day on the Lounge. The day label (Pre-cruise, Embarkation, Sea day, Nassau) shows under the date.</p>
+    <table class="a-table"><thead><tr><th>Day</th><th>Time</th><th>Event</th><th>Where / detail</th><th></th></tr></thead><tbody id="tb-events"></tbody></table>
+    <p class="a-hint" id="empty-events" hidden>No events yet.</p>
+  </div>
+
+  <div class="a-card" style="margin-bottom:1.3rem;" data-type="dates">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
+      <h2 style="margin:0;font-size:1.1rem;">Key dates &amp; deadlines</h2>
+      <button class="a-btn" type="button" data-add="dates">+ Add date</button>
+    </div>
+    <table class="a-table"><thead><tr><th>Date</th><th>Title</th><th>Detail</th><th></th></tr></thead><tbody id="tb-dates"></tbody></table>
+    <p class="a-hint" id="empty-dates" hidden>No deadlines yet.</p>
+  </div>
+
+  <div class="a-card" data-type="links">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
+      <h2 style="margin:0;font-size:1.1rem;">Documents &amp; links</h2>
+      <button class="a-btn" type="button" data-add="links">+ Add link</button>
+    </div>
+    <p class="a-hint">Packing lists, the host hotel booking link, excursion guides, forms. Paste a link to a PDF in Google Drive or Dropbox for documents.</p>
+    <table class="a-table"><thead><tr><th>Title</th><th>Note</th><th>Link</th><th></th></tr></thead><tbody id="tb-links"></tbody></table>
+    <p class="a-hint" id="empty-links" hidden>No links yet.</p>
+  </div>
+  <p class="a-msg" id="pageMsg" hidden></p>
+</div>
+
+<!-- Add / Edit modal (one form, fields swapped per type) -->
+<div id="editModal" style="display:none;position:fixed;inset:0;z-index:100;background:rgba(6,15,28,0.6);align-items:flex-start;justify-content:center;overflow-y:auto;padding:2rem 1rem;">
+  <div class="a-card" style="width:100%;max-width:620px;">
+    <h2 id="editTitle" style="margin-top:0;">Add</h2>
+    <input type="hidden" id="e-id"><input type="hidden" id="e-type">
+    <div class="a-grid a-grid-2" id="fields"></div>
+    <div style="margin-top:1rem;display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap;">
+      <button class="a-btn" id="saveBtn" type="button">Save</button>
+      <button class="a-btn a-btn-ghost" id="cancelBtn" type="button">Cancel</button>
+      <span class="a-msg err" id="editErr" hidden></span>
+      <button class="a-btn a-btn-ghost" id="deleteBtn" type="button" style="margin-left:auto;color:var(--a-red);border-color:var(--a-red);display:none;">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/admin.js"></script>
+<script>
+(async function () {
+  var user = await window.PHCAdmin;
+  if (!user) return;
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { var d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; };
+  var data = { settings: {}, posts: [], events: [], dates: [], links: [] };
+
+  // What each content type looks like in the editor and in its table.
+  var TYPES = {
+    posts: { label: 'post', fields: [
+      { k: 'title', l: 'Title', t: 'text', full: true },
+      { k: 'post_date', l: 'Date', t: 'date' },
+      { k: 'published', l: 'Published', t: 'checkbox', def: true },
+      { k: 'body', l: 'Text (blank line between paragraphs; links become clickable)', t: 'textarea', full: true, rows: 10 } ],
+      row: function (p) { return [fmtDate(p.post_date), '<strong>' + esc(p.title) + '</strong>', p.published ? 'Published' : '<span style="color:var(--a-soft);">Draft</span>']; } },
+    events: { label: 'event', fields: [
+      { k: 'day', l: 'Day', t: 'date' },
+      { k: 'start_time', l: 'Start time', t: 'time' },
+      { k: 'title', l: 'Event', t: 'text', full: true },
+      { k: 'detail', l: 'Where / detail (one line)', t: 'text', full: true },
+      { k: 'day_label', l: 'Day label (Pre-cruise, Embarkation, Sea day, port name)', t: 'text', full: true } ],
+      row: function (e) { return [fmtDate(e.day) + (e.day_label ? '<br><span style="color:var(--a-soft);font-size:0.8rem;">' + esc(e.day_label) + '</span>' : ''), fmtTime(e.start_time), '<strong>' + esc(e.title) + '</strong>', esc(e.detail)]; } },
+    dates: { label: 'deadline', fields: [
+      { k: 'due_date', l: 'Date', t: 'date' },
+      { k: 'title', l: 'Title', t: 'text' },
+      { k: 'detail', l: 'Detail (one line)', t: 'text', full: true } ],
+      row: function (d) { return [fmtDate(d.due_date), '<strong>' + esc(d.title) + '</strong>', esc(d.detail)]; } },
+    links: { label: 'link', fields: [
+      { k: 'title', l: 'Title', t: 'text', full: true },
+      { k: 'url', l: 'Link (https://…)', t: 'url', full: true },
+      { k: 'note', l: 'Note (e.g. PDF, 2 pages)', t: 'text' },
+      { k: 'sort_order', l: 'Order (lower shows first)', t: 'number' } ],
+      row: function (l) { return ['<strong>' + esc(l.title) + '</strong>', esc(l.note), '<a href="' + esc(l.url) + '" target="_blank" rel="noopener" style="word-break:break-all;font-size:0.85rem;">' + esc(l.url) + '</a>']; } },
+  };
+
+  function fmtDate(s) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ''); if (!m) return esc(s || '');
+    return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+  }
+  function fmtTime(s) {
+    var m = /^(\d{1,2}):(\d{2})$/.exec(s || ''); if (!m) return '';
+    var h = +m[1], ap = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; return h + ':' + m[2] + ' ' + ap;
+  }
+
+  function renderType(type) {
+    var tb = $('tb-' + type), rows = data[type] || [];
+    $('empty-' + type).hidden = rows.length > 0;
+    tb.innerHTML = rows.map(function (r) {
+      return '<tr>' + TYPES[type].row(r).map(function (c) { return '<td>' + c + '</td>'; }).join('') +
+        '<td style="white-space:nowrap;"><button class="a-btn a-btn-ghost" data-edit="' + type + ':' + r.id + '" style="padding:0.35em 0.7em;">Edit</button></td></tr>';
+    }).join('');
+    tb.querySelectorAll('[data-edit]').forEach(function (b) {
+      b.onclick = function () { var p = b.getAttribute('data-edit').split(':'); openEdit(p[0], data[p[0]].find(function (x) { return x.id === p[1]; })); };
+    });
+  }
+
+  async function load() {
+    try {
+      var res = await fetch('/api/admin/lounge');
+      if (!res.ok) throw new Error('http ' + res.status);
+      data = await res.json();
+      $('pinTitle').value = data.settings.pinned_title || '';
+      $('pinBody').value = data.settings.pinned_body || '';
+      $('enabled').checked = data.settings.enabled !== '0';
+      ['posts', 'events', 'dates', 'links'].forEach(renderType);
+    } catch (e) {
+      $('pageMsg').textContent = 'Could not load the Lounge content. Please refresh.'; $('pageMsg').className = 'a-msg err'; $('pageMsg').hidden = false;
+    }
+  }
+
+  $('saveSettings').onclick = async function () {
+    var m = $('settingsMsg');
+    var res = await fetch('/api/admin/lounge/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pinned_title: $('pinTitle').value, pinned_body: $('pinBody').value, enabled: $('enabled').checked }) });
+    m.hidden = false; m.className = 'a-msg ' + (res.ok ? 'ok' : 'err'); m.textContent = res.ok ? 'Saved ✓' : 'Could not save.';
+    setTimeout(function () { m.hidden = true; }, 2000);
+  };
+  $('enabled').onchange = function () { $('saveSettings').click(); };
+
+  // ---- editor ----
+  function openEdit(type, item) {
+    item = item || {};
+    var T = TYPES[type];
+    $('e-type').value = type; $('e-id').value = item.id || '';
+    $('editTitle').textContent = (item.id ? 'Edit ' : 'New ') + T.label;
+    $('fields').innerHTML = T.fields.map(function (f) {
+      var v = item[f.k] !== undefined && item[f.k] !== null ? item[f.k] : (f.def !== undefined ? f.def : '');
+      var style = f.full ? ' style="grid-column:1/-1;"' : '';
+      if (f.t === 'checkbox') return '<label class="a-field"' + style + '><span>' + esc(f.l) + '</span><span style="display:inline-flex;align-items:center;gap:0.5em;padding-top:0.5em;"><input type="checkbox" id="f-' + f.k + '"' + (v ? ' checked' : '') + '> Yes</span></label>';
+      if (f.t === 'textarea') return '<label class="a-field"' + style + '><span>' + esc(f.l) + '</span><textarea class="a-input" id="f-' + f.k + '" rows="' + (f.rows || 4) + '">' + esc(v) + '</textarea></label>';
+      return '<label class="a-field"' + style + '><span>' + esc(f.l) + '</span><input class="a-input" id="f-' + f.k + '" type="' + f.t + '" value="' + esc(v) + '"></label>';
+    }).join('');
+    $('deleteBtn').style.display = item.id ? 'inline-block' : 'none';
+    $('editErr').hidden = true;
+    $('editModal').style.display = 'flex';
+    var first = $('fields').querySelector('input,textarea'); if (first) first.focus();
+  }
+  document.querySelectorAll('[data-add]').forEach(function (b) { b.onclick = function () { openEdit(b.getAttribute('data-add'), null); }; });
+  $('cancelBtn').onclick = function () { $('editModal').style.display = 'none'; };
+  $('editModal').addEventListener('click', function (e) { if (e.target === $('editModal')) $('editModal').style.display = 'none'; });
+
+  $('saveBtn').onclick = async function () {
+    var type = $('e-type').value, T = TYPES[type], body = { id: $('e-id').value || undefined };
+    T.fields.forEach(function (f) { var el = $('f-' + f.k); body[f.k] = f.t === 'checkbox' ? el.checked : el.value; });
+    var res = await fetch('/api/admin/lounge/' + type, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (res.ok) { $('editModal').style.display = 'none'; load(); return; }
+    var d = await res.json().catch(function () { return {}; });
+    var e = $('editErr'); e.hidden = false;
+    e.textContent = /^missing_/.test(d.error || '') ? 'Please fill in: ' + d.error.replace('missing_', '').replace('_', ' ') + (d.error === 'missing_url' ? ' (must start with https://)' : '') + '.' : 'Could not save. Please try again.';
+  };
+  $('deleteBtn').onclick = async function () {
+    var type = $('e-type').value, id = $('e-id').value;
+    if (!id || !confirm('Delete this ' + TYPES[type].label + ' from the Lounge?')) return;
+    var res = await fetch('/api/admin/lounge/' + type + '/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id }) });
+    if (res.ok) { $('editModal').style.display = 'none'; load(); }
+  };
+
+  load();
+})();
+</script>
+</body>
+</html>

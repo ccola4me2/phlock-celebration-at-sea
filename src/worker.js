@@ -26,6 +26,7 @@ import {
 } from './cabins.js';
 import { handleUnsubscribe, handleDripAdmin, runDrip } from './drip.js';
 import { handleShortLink, handleLinksApi } from './links.js';
+import { handleLounge, handleLoungeAdmin } from './lounge.js';
 import { ensureSchema, insertVisit } from './db.js';
 import { parseCookies } from './util.js';
 
@@ -92,6 +93,9 @@ export default {
     // Short links from the Link Builder: /go/<code> -> full UTM-tagged URL.
     if (path.startsWith('/go/')) return handleShortLink(request, env, ctx, url);
 
+    // The Drifters Lounge (private page for booked guests).
+    if (path === '/drifters' || path.startsWith('/drifters/')) return handleLounge(request, env, url);
+
     // ---- Auth + admin API ----
     if (path === '/api/auth/login' && request.method === 'POST') return handleLogin(request, env);
     if (path === '/api/auth/logout' && request.method === 'POST') return handleLogout(request, env);
@@ -131,6 +135,8 @@ export default {
       return handleDripAdmin(request, env, url);
     if (path === '/api/admin/links' || path === '/api/admin/links/delete')
       return handleLinksApi(request, env, url);
+    if (path === '/api/admin/lounge' || path.startsWith('/api/admin/lounge/'))
+      return handleLoungeAdmin(request, env, url);
     if (path.startsWith('/api/admin/')) return handleAdminApi(request, env, url);
 
     // ---- Admin page gate ----

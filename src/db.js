@@ -99,6 +99,54 @@ export async function ensureSchema(db) {
       clicks INTEGER NOT NULL DEFAULT 0,
       last_click_at INTEGER
     )`,
+    // Drifters Lounge: private content for booked guests (see lounge.js).
+    `CREATE TABLE IF NOT EXISTS lounge_posts (
+      id TEXT PRIMARY KEY,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER,
+      title TEXT NOT NULL,
+      body TEXT,
+      post_date TEXT,
+      published INTEGER NOT NULL DEFAULT 1
+    )`,
+    `CREATE TABLE IF NOT EXISTS lounge_events (
+      id TEXT PRIMARY KEY,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER,
+      day TEXT NOT NULL,
+      start_time TEXT,
+      title TEXT NOT NULL,
+      detail TEXT,
+      day_label TEXT
+    )`,
+    `CREATE TABLE IF NOT EXISTS lounge_dates (
+      id TEXT PRIMARY KEY,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER,
+      due_date TEXT NOT NULL,
+      title TEXT NOT NULL,
+      detail TEXT
+    )`,
+    `CREATE TABLE IF NOT EXISTS lounge_links (
+      id TEXT PRIMARY KEY,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER,
+      title TEXT NOT NULL,
+      note TEXT,
+      url TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0
+    )`,
+    `CREATE TABLE IF NOT EXISTS lounge_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    )`,
+    `CREATE TABLE IF NOT EXISTS drifter_sessions (
+      id TEXT PRIMARY KEY,
+      cabin_id TEXT NOT NULL,
+      guest_name TEXT,
+      created_at INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL
+    )`,
   ];
   for (const sql of statements) await db.prepare(sql).run();
   // Additive migrations for tables that may already exist (ADD COLUMN fails
@@ -434,4 +482,94 @@ export function bumpShortLink(db, code, ts) {
     .prepare('UPDATE short_links SET clicks = clicks + 1, last_click_at = ? WHERE code = ?')
     .bind(ts, code)
     .run();
+}
+
+// ---- Drifters Lounge content (one generic CRUD over four small tables) ----
+export const LOUNGE_TYPES = {
+  posts: { table: 'lounge_posts', cols: ['title', 'body', 'post_date', 'published'], order: 'post_date DESC, created_at DESC' },
+  events: { table: 'lounge_events', cols: ['day', 'start_time', 'title', 'detail', 'day_label'], order: 'day ASC, start_time ASC, created_at ASC' },
+  dates: { table: 'lounge_dates', cols: ['due_date', 'title', 'detail'], order: 'due_date ASC, created_at ASC' },
+  links: { table: 'lounge_links', cols: ['title', 'note', 'url', 'sort_order'], order: 'sort_order ASC, created_at ASC' },
+};
+
+export async function listLounge(db, type) {
+  const t = LOUNGE_TYPES[type];
+  const rows = await db.prepare(`SELECT * FROM ${t.table} ORDER BY ${t.order} LIMIT 500`).all();
+  return rows.results || [];
+}
+
+export function getLoungeRow(db, type, id) {
+  const t = LOUNGE_TYPES[type];
+  return db.prepare(`SELECT * FROM ${t.table} WHERE id = ?`).bind(id).first();
+}
+
+// row.id present = update (only the columns sent); absent = insert.
+export async function saveLounge(db, type, row) {
+  const t = LOUNGE_TYPES[type];
+  const now = Date.now();
+  if (row.id) {
+    const cols = [];
+    const args = [];
+    for (const k of t.cols) {
+      if (row[k] !== undefined) { cols.push(`${k} = ?`); args.push(row[k]); }
+    }
+    if (!cols.length) return row.id;
+    cols.push('updated_at = ?');
+    args.push(now, row.id);
+    await db.prepare(`UPDATE ${t.table} SET ${cols.join(', ')} WHERE id = ?`).bind(...args).run();
+    return row.id;
+  }
+  const id = crypto.randomUUID();
+  const cols = ['id', 'created_at'].concat(t.cols.filter((k) => row[k] !== undefined));
+  const vals = [id, now].concat(t.cols.filter((k) => row[k] !== undefined).map((k) => row[k]));
+  await db
+    .prepare(`INSERT INTO ${t.table} (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(',')})`)
+    .bind(...vals)
+    .run();
+  return id;
+}
+
+export function deleteLounge(db, type, id) {
+  const t = LOUNGE_TYPES[type];
+  return db.prepare(`DELETE FROM ${t.table} WHERE id = ?`).bind(id).run();
+}
+
+export async function getLoungeSettings(db) {
+  const rows = await db.prepare('SELECT key, value FROM lounge_settings').all();
+  const out = {};
+  for (const r of rows.results || []) out[r.key] = r.value;
+  return out;
+}
+
+export function setLoungeSetting(db, key, value) {
+  return db.prepare('INSERT OR REPLACE INTO lounge_settings (key, value) VALUES (?, ?)').bind(key, value).run();
+}
+
+// ---- Drifter (guest) sessions ----
+export function createDrifterSession(db, s) {
+  return db
+    .prepare('INSERT INTO drifter_sessions (id, cabin_id, guest_name, created_at, expires_at) VALUES (?,?,?,?,?)')
+    .bind(s.id, s.cabin_id, s.guest_name, s.created_at, s.expires_at)
+    .run();
+}
+
+export function getDrifterSession(db, id) {
+  return db.prepare('SELECT * FROM drifter_sessions WHERE id = ?').bind(id).first();
+}
+
+export function deleteDrifterSession(db, id) {
+  return db.prepare('DELETE FROM drifter_sessions WHERE id = ?').bind(id).run();
+}
+
+// A booked cabin whose reservation number matches and whose name contains the
+// last name (case-insensitive). Available (unsold) cabins never match.
+export function findCabinForSignIn(db, resNumber, lastNameLower) {
+  return db
+    .prepare(
+      `SELECT * FROM cabins
+       WHERE TRIM(res_number) = ? AND status <> 'available'
+         AND lower(name) LIKE '%' || ? || '%' LIMIT 1`
+    )
+    .bind(resNumber, lastNameLower)
+    .first();
 }
