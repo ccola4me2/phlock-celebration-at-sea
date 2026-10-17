@@ -25,6 +25,7 @@ import {
   handleRenameCabinType,
 } from './cabins.js';
 import { handleUnsubscribe, handleDripAdmin, runDrip } from './drip.js';
+import { handleShortLink, handleLinksApi } from './links.js';
 import { ensureSchema, insertVisit } from './db.js';
 import { parseCookies } from './util.js';
 
@@ -88,6 +89,9 @@ export default {
       });
     }
 
+    // Short links from the Link Builder: /go/<code> -> full UTM-tagged URL.
+    if (path.startsWith('/go/')) return handleShortLink(request, env, ctx, url);
+
     // ---- Auth + admin API ----
     if (path === '/api/auth/login' && request.method === 'POST') return handleLogin(request, env);
     if (path === '/api/auth/logout' && request.method === 'POST') return handleLogout(request, env);
@@ -125,6 +129,8 @@ export default {
     if (path === '/unsubscribe') return handleUnsubscribe(request, env, url);
     if (path === '/api/admin/leads/drip' || path.startsWith('/api/admin/drip/'))
       return handleDripAdmin(request, env, url);
+    if (path === '/api/admin/links' || path === '/api/admin/links/delete')
+      return handleLinksApi(request, env, url);
     if (path.startsWith('/api/admin/')) return handleAdminApi(request, env, url);
 
     // ---- Admin page gate ----

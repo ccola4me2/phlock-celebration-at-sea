@@ -86,6 +86,19 @@ export async function ensureSchema(db) {
       notes TEXT,
       tc INTEGER NOT NULL DEFAULT 0
     )`,
+    `CREATE TABLE IF NOT EXISTS short_links (
+      code TEXT PRIMARY KEY,
+      target TEXT NOT NULL,
+      page TEXT,
+      advisor TEXT,
+      source TEXT,
+      medium TEXT,
+      campaign TEXT,
+      created_by TEXT,
+      created_at INTEGER NOT NULL,
+      clicks INTEGER NOT NULL DEFAULT 0,
+      last_click_at INTEGER
+    )`,
   ];
   for (const sql of statements) await db.prepare(sql).run();
   // Additive migrations for tables that may already exist (ADD COLUMN fails
@@ -390,4 +403,35 @@ export function updateLead(db, id, fields) {
   cols.push('updated_at = ?');
   args.push(Date.now(), id);
   return db.prepare(`UPDATE leads SET ${cols.join(', ')} WHERE id = ?`).bind(...args).run();
+}
+
+// ---- short links (parrotheadscruise.com/go/<code>) ----
+export function getShortLink(db, code) {
+  return db.prepare('SELECT * FROM short_links WHERE code = ?').bind(code).first();
+}
+
+export function insertShortLink(db, l) {
+  return db
+    .prepare(
+      `INSERT INTO short_links (code, target, page, advisor, source, medium, campaign, created_by, created_at)
+       VALUES (?,?,?,?,?,?,?,?,?)`
+    )
+    .bind(l.code, l.target, l.page, l.advisor, l.source, l.medium, l.campaign, l.created_by, l.created_at)
+    .run();
+}
+
+export async function listShortLinks(db) {
+  const rows = await db.prepare('SELECT * FROM short_links ORDER BY created_at DESC LIMIT 500').all();
+  return rows.results || [];
+}
+
+export function deleteShortLink(db, code) {
+  return db.prepare('DELETE FROM short_links WHERE code = ?').bind(code).run();
+}
+
+export function bumpShortLink(db, code, ts) {
+  return db
+    .prepare('UPDATE short_links SET clicks = clicks + 1, last_click_at = ? WHERE code = ?')
+    .bind(ts, code)
+    .run();
 }
