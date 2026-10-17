@@ -209,23 +209,23 @@ function gatePage(err, closed) {
   const notice = closed
     ? '<div class="err">The Dive Bar isn\'t open yet. Check back soon, or ask Lori, Dawn or Brent.</div>'
     : err === 'nomatch'
-      ? '<div class="err">We couldn\'t find that reservation. Check the last name and reservation number on your confirmation, or text Lori, Dawn or Brent.</div>'
+      ? '<div class="err">We couldn\'t find that booking. Check the last name and booking ID # on your confirmation, or text Lori, Dawn or Brent.</div>'
       : err === 'missing'
-        ? '<div class="err">Please enter both your last name and your reservation number.</div>'
+        ? '<div class="err">Please enter both your last name and your booking ID #.</div>'
         : '';
   return head('Drifters Dive Bar') + `
 <div class="lg-gate"><div class="lg-card">
   <div class="lock">&#128274;</div>
   <span class="script">Drifters only</span>
   <h1>The Drifters Dive Bar</h1>
-  <p>Booked on the 2027 sailing? Sign in with the name and reservation number on your confirmation to see the schedule, news and deadlines.</p>
+  <p>Dive in with your name and booking ID # for all the details: schedule, events, news and deadlines.</p>
   ${notice}
   <form method="post" action="/drifters/login" ${closed ? 'hidden' : ''}>
     <label for="ln">Last name</label><input id="ln" name="last_name" autocomplete="family-name" required>
-    <label for="rn">Reservation number</label><input id="rn" name="res_number" inputmode="numeric" autocomplete="off" required>
-    <button class="btn btn-gold" type="submit">Enter the Dive Bar</button>
+    <label for="rn">Booking ID #</label><input id="rn" name="res_number" inputmode="numeric" autocomplete="off" required>
+    <button class="btn btn-gold" type="submit">Dive In</button>
   </form>
-  <p class="help">Any last name on the booking works. Can't find your reservation number? Text Lori (813) 230-7879, Dawn (813) 453-4905 or Brent (561) 777-9911.</p>
+  <p class="help">Any last name on the booking works. Your booking ID # is the reservation number on your confirmation. Can't find it? Text Lori (813) 230-7879, Dawn (813) 453-4905 or Brent (561) 777-9911.</p>
 </div></div>` + foot('');
 }
 
