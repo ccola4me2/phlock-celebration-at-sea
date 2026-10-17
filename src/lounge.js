@@ -33,7 +33,6 @@ import { json, parseCookies, randomToken, sha256Hex } from './util.js';
 const SITE = 'https://parrotheadscruise.com';
 const COOKIE = 'phc_drifter';
 const SESSION_DAYS = 90;
-const GROUP_NUMBER = '4733';
 // June 26, 2027, 4:00 PM Eastern.
 const SAIL_AT = Date.UTC(2027, 5, 26, 20, 0, 0);
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -125,12 +124,13 @@ async function viewer(request, env) {
 
 // ---- shared page chrome ----
 const CSS = `
-  .lg-hero { background: linear-gradient(180deg, rgba(6,15,28,.78), rgba(6,15,28,.86)), url("/assets/img/pool-deck.jpg") center 40%/cover no-repeat; color:#fff; padding: 3.5rem 0 3rem; }
+  .lg-hero { background: linear-gradient(100deg, rgba(6,15,28,.95) 0%, rgba(6,15,28,.84) 48%, rgba(6,15,28,.58) 100%), url("/assets/img/ship-exterior.jpg") center 62%/cover no-repeat; color:#fff; padding: 4rem 0 3.5rem; }
   .lg-hero .container { display:grid; grid-template-columns: 1.3fr 1fr; gap:2rem; align-items:center; }
-  .lg-hero h1 { margin:.2rem 0 .6rem; }
-  .lg-chips { display:flex; gap:.6rem; flex-wrap:wrap; margin-top:1rem; }
-  .lg-chip { display:inline-flex; align-items:center; gap:.5em; background:rgba(255,255,255,.08); border:1px solid rgba(201,165,69,.5); border-radius:999px; padding:.45em 1em; font-size:.8rem; letter-spacing:.06em; text-transform:uppercase; font-weight:600; color:var(--gold-light); }
-  .lg-chip b { color:#fff; font-size:1rem; letter-spacing:0; }
+  .lg-hero h1 { margin:.2rem 0 .6rem; color:#fff; }
+  .lg-hero .hero-lede { color:rgba(255,255,255,.86); }
+  .lg-meta { display:flex; flex-wrap:wrap; align-items:center; gap:.6rem 1.1rem; margin-top:1.5rem; padding-top:1.1rem; border-top:1px solid rgba(201,165,69,.35); font-size:.76rem; letter-spacing:.1em; text-transform:uppercase; color:rgba(255,255,255,.72); }
+  .lg-meta b { color:var(--gold-light); font-weight:700; letter-spacing:.04em; font-size:1rem; }
+  .lg-meta .sep { width:4px; height:4px; border-radius:50%; background:var(--gold); opacity:.8; }
   .lg-pinned { background:var(--cream); color:var(--ink); border-radius:12px; padding:1.3rem 1.4rem; border-left:5px solid var(--gold); box-shadow:var(--shadow-md); }
   .lg-pinned .tag { font-size:.7rem; letter-spacing:.12em; text-transform:uppercase; font-weight:700; color:#8a6d1f; }
   .lg-pinned h3 { margin:.3rem 0 .4rem; font-family:var(--font-display); font-size:1.05rem; color:var(--navy-900); }
@@ -160,7 +160,7 @@ const CSS = `
   .lg-doc b { display:block; color:var(--navy-900); } .lg-doc small { color:var(--ink-soft); }
   .lg-empty { color:var(--ink-soft); text-align:center; padding:1rem 0; }
   .bg-navy .lg-empty { color:rgba(255,255,255,.6); }
-  .lg-gate { min-height:70vh; display:flex; align-items:center; justify-content:center; padding:3rem 1rem; background:linear-gradient(180deg, rgba(6,15,28,.80), rgba(6,15,28,.88)), url("/assets/img/pool-deck.jpg") center/cover no-repeat; }
+  .lg-gate { min-height:70vh; display:flex; align-items:center; justify-content:center; padding:3rem 1rem; background:linear-gradient(180deg, rgba(6,15,28,.82), rgba(6,15,28,.90)), url("/assets/img/ship-exterior.jpg") center 60%/cover no-repeat; }
   .lg-card { background:var(--cream); color:var(--ink); border-radius:14px; padding:2.2rem 2rem; max-width:460px; width:100%; box-shadow:0 30px 70px rgba(0,0,0,.45); text-align:center; }
   .lg-card .lock { width:54px; height:54px; border-radius:50%; background:var(--navy-900); color:var(--gold); display:inline-flex; align-items:center; justify-content:center; font-size:1.4rem; margin-bottom:.6rem; }
   .lg-card h1 { font-family:var(--font-display); font-size:1.5rem; margin:.2rem 0 .3rem; color:var(--navy-900); }
@@ -274,7 +274,7 @@ function loungePage(who, settings, posts, events, dates, links) {
     <span class="hero-script">Welcome aboard, Drifters</span>
     <h1>The Drifters Lounge</h1>
     <p class="hero-lede" style="margin:0;">Everything for our booked PHlock in one place: the schedule, the latest news, the deadlines and the people to call. Private to the 2027 sailing.</p>
-    <div class="lg-chips"><span class="lg-chip">Sails in <b>${daysToSail()} days</b></span><span class="lg-chip">Group <b>${GROUP_NUMBER}</b></span><span class="lg-chip">Beachcomber &middot; Jun 26 to Jul 3</span></div>
+    <div class="lg-meta"><span><b>${daysToSail()}</b> days to sail</span><span class="sep"></span><span>June 26 to July 3, 2027</span><span class="sep"></span><span>Margaritaville at Sea Beachcomber</span></div>
   </div>
   ${pinned}
 </div></section>
