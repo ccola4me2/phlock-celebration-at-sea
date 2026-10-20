@@ -13,6 +13,7 @@ import {
   handleUpdateLead,
   handleDeleteLead,
   handleImportLeads,
+  handleAdminCreateLead,
 } from './leads.js';
 import {
   handleListCabins,
@@ -113,6 +114,8 @@ export default {
       return handleDeleteLead(request, env);
     if (path === '/api/admin/leads/import' && request.method === 'POST')
       return handleImportLeads(request, env);
+    if (path === '/api/admin/leads/create' && request.method === 'POST')
+      return handleAdminCreateLead(request, env);
     if (path === '/api/admin/cabins' && request.method === 'GET')
       return handleListCabins(request, env, url);
     if (path === '/api/admin/cabins/save' && request.method === 'POST')

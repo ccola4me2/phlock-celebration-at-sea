@@ -44,6 +44,7 @@
         <input class="a-input" id="fSearch" type="search" placeholder="Search&hellip;">
       </label>
       <button class="a-btn" id="applyBtn" type="button">Apply</button>
+      <button class="a-btn" id="addBtn" type="button">+ Add Lead</button>
       <button class="a-btn a-btn-ghost" id="importBtn" type="button">Import</button>
       <a class="a-btn a-btn-ghost" id="csvBtn" href="/api/admin/leads?format=csv" download>Export CSV</a>
     </div>
@@ -71,6 +72,60 @@
     <p class="a-hint" id="leadsEmpty" hidden style="padding:1rem;">No leads yet. They'll appear here the moment someone submits the contact form.</p>
   </div>
   <p class="a-msg" id="pageMsg" hidden></p>
+</div>
+
+<!-- Add a lead by hand -->
+<div id="addModal" style="display:none;position:fixed;inset:0;z-index:100;background:rgba(6,15,28,0.6);align-items:flex-start;justify-content:center;overflow-y:auto;padding:2rem 1rem;">
+  <div class="a-card" style="width:100%;max-width:620px;">
+    <h2 style="margin-top:0;">Add Lead</h2>
+    <p class="a-hint" style="margin-top:0;">For a phone call, a referral, or anyone who didn't use the website form. No alert email is sent.</p>
+    <div class="a-grid a-grid-2">
+      <label class="a-field"><span>First name</span><input class="a-input" id="n-first_name"></label>
+      <label class="a-field"><span>Last name</span><input class="a-input" id="n-last_name"></label>
+      <label class="a-field"><span>Email</span><input class="a-input" id="n-email" type="email"></label>
+      <label class="a-field"><span>Phone</span><input class="a-input" id="n-phone" type="tel"></label>
+      <label class="a-field"><span>State</span><input class="a-input" id="n-state" placeholder="FL"></label>
+      <label class="a-field"><span>Cabin interest</span>
+        <select class="a-input" id="n-cabin">
+          <option value="">Not sure yet</option>
+          <option>Cozy Interior - from $844.40 pp</option>
+          <option>Picturesque Oceanview - from $1,005.90 pp</option>
+          <option>Breezy Balcony - from $1,091.40 pp</option>
+          <option>Wake View Balcony - from $1,129.40 pp</option>
+          <option>Junior Corner Suite - from $1,813.40 pp</option>
+          <option>Grand Terrace Suite - from $1,918.85 pp</option>
+        </select>
+      </label>
+      <label class="a-field"><span>How did they hear about us</span>
+        <select class="a-input" id="n-heard">
+          <option value="">Not sure</option>
+          <option>Cruised on Previous Parrot Head Drifters Cruise</option>
+          <option>Referred by a Parrot Head Drifter</option>
+          <option>Facebook</option>
+          <option>Instagram</option>
+          <option>Google</option>
+          <option>Brent Beasley</option>
+          <option>Dawn Turner</option>
+          <option>Lori Judd</option>
+          <option>Brent's Friends and Family Cruise</option>
+          <option>Phone call</option>
+          <option>Walk-up / in person</option>
+        </select>
+      </label>
+      <label class="a-field"><span>Status</span>
+        <select class="a-input" id="n-status"><option value="new">New</option><option value="contacted">Contacted</option><option value="quoted">Quoted</option><option value="booked">Booked</option><option value="lost">Lost</option></select>
+      </label>
+      <label class="a-field"><span>Assigned to</span>
+        <select class="a-input" id="n-assigned_to"><option value="">Unassigned</option><option>Lori</option><option>Dawn</option><option>Brent</option></select>
+      </label>
+      <label class="a-field" style="grid-column:1/-1;"><span>Notes (internal)</span><textarea class="a-input" id="n-notes" rows="3" placeholder="e.g. Called 10/20, wants a balcony near friends in 7338"></textarea></label>
+    </div>
+    <div style="display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap;margin-top:0.6rem;">
+      <button class="a-btn" id="addSave" type="button">Save lead</button>
+      <button class="a-btn a-btn-ghost" id="addCancel" type="button">Cancel</button>
+      <span class="a-msg err" id="addErr" hidden></span>
+    </div>
+  </div>
 </div>
 
 <div id="importModal" style="display:none;position:fixed;inset:0;z-index:100;background:rgba(6,15,28,0.6);align-items:flex-start;justify-content:center;overflow-y:auto;padding:2rem 1rem;">
@@ -268,6 +323,34 @@
     });
     return out;
   }
+  // ---- Add a lead by hand ----
+  var ADD_FIELDS = ['first_name', 'last_name', 'email', 'phone', 'state', 'cabin', 'heard', 'status', 'assigned_to', 'notes'];
+  $('addBtn').onclick = function () {
+    ADD_FIELDS.forEach(function (k) { $('n-' + k).value = k === 'status' ? 'new' : ''; });
+    $('addErr').hidden = true;
+    $('addModal').style.display = 'flex';
+    $('n-first_name').focus();
+  };
+  $('addCancel').onclick = function () { $('addModal').style.display = 'none'; };
+  $('addModal').addEventListener('click', function (e) { if (e.target === $('addModal')) $('addModal').style.display = 'none'; });
+  $('addSave').onclick = async function () {
+    var body = {};
+    ADD_FIELDS.forEach(function (k) { body[k] = $('n-' + k).value.trim(); });
+    var err = $('addErr'); err.hidden = true;
+    if (!body.first_name) { err.textContent = 'First name is required.'; err.hidden = false; return; }
+    if (!body.email && !body.phone) { err.textContent = 'Enter an email or a phone number.'; err.hidden = false; return; }
+    $('addSave').disabled = true;
+    try {
+      var res = await fetch('/api/admin/leads/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      var d = await res.json().catch(function () { return {}; });
+      if (!res.ok) { err.textContent = d.error === 'bad_email' ? 'That email address doesn\'t look right.' : 'Could not save the lead. Please try again.'; err.hidden = false; return; }
+      $('addModal').style.display = 'none';
+      load();
+    } finally {
+      $('addSave').disabled = false;
+    }
+  };
+
   $('importBtn').onclick = function () { $('importModal').style.display = 'flex'; };
 
   // Send one email of the drip sequence to the signed-in admin to check copy

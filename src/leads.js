@@ -249,6 +249,51 @@ export async function handleImportLeads(request, env) {
   return json({ ok: true, added });
 }
 
+// Admin adds a lead by hand (a phone call, a referral). No alert email: the
+// person entering it already knows. Tagged source 'admin' so Reports can tell.
+export async function handleAdminCreateLead(request, env) {
+  const admin = await requireAdmin(request, env);
+  if (!admin) return json({ error: 'unauthorized' }, 401);
+  await ensureSchema(env.DB);
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: 'bad_request' }, 400);
+  }
+  const first = clip(body.first_name, 80);
+  const email = clip(body.email, 160);
+  const phone = clip(body.phone, 40);
+  if (!first) return json({ error: 'missing_first_name' }, 400);
+  if (!email && !phone) return json({ error: 'missing_contact' }, 400);
+  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: 'bad_email' }, 400);
+  const id = crypto.randomUUID();
+  await insertLead(env.DB, {
+    id,
+    created_at: Date.now(),
+    first_name: first,
+    last_name: clip(body.last_name, 80),
+    email,
+    phone,
+    state: clip(body.state, 60),
+    cabin: clip(body.cabin, 120),
+    heard: clip(body.heard, 160),
+    message: clip(body.message, 4000),
+    advisor: '',
+    source: 'admin',
+    medium: 'manual',
+    campaign: '',
+    referrer: '',
+    landing: '',
+    status: VALID_STATUS.includes(body.status) ? body.status : 'new',
+  });
+  const extra = {};
+  if (clip(body.assigned_to, 60)) extra.assigned_to = clip(body.assigned_to, 60);
+  if (clip(body.notes, 8000)) extra.notes = clip(body.notes, 8000);
+  if (Object.keys(extra).length) await updateLead(env.DB, id, extra);
+  return json({ ok: true, id });
+}
+
 export async function handleDeleteLead(request, env) {
   const admin = await requireAdmin(request, env);
   if (!admin) return json({ error: 'unauthorized' }, 401);
