@@ -172,7 +172,8 @@ const CSS = `
   .lg-card input { width:100%; padding:.85em 1em; font:inherit; font-size:1.05rem; border:1px solid var(--cream-dark); border-radius:10px; background:#fff; }
   .lg-card .btn { width:100%; margin-top:1rem; border:none; cursor:pointer; font:inherit; }
   .lg-card .help { font-size:.82rem; color:var(--ink-soft); margin:1rem 0 0; }
-  .lg-card .err { background:#fdecec; color:#8a2a2a; border-radius:8px; padding:.7em .9em; font-size:.9rem; margin:0 0 .6rem; }
+  .lg-card .err { background:#fdecec; color:#8a2a2a; border-radius:8px; padding:.7em .9em; font-size:.9rem; margin:0 0 .6rem; text-align:left; }
+  .lg-card .note { background:#eaf2f8; color:#1f3d5c; border-radius:8px; padding:.7em .9em; font-size:.88rem; margin:0 0 .6rem; text-align:left; }
   .lg-article { max-width:760px; margin:0 auto; }
   .lg-article .date { font-size:.78rem; letter-spacing:.1em; text-transform:uppercase; color:var(--gold); font-weight:700; }
   .lg-article .body p { font-family:var(--font-serif); font-size:1.18rem; line-height:1.72; color:var(--ink); margin:0 0 1em; }
@@ -207,9 +208,14 @@ function foot(who) {
 }
 
 // ---- pages ----
-function gatePage(err, closed) {
+function gatePage(err, closed, inApp) {
+  const tip = inApp && err !== 'cookies'
+    ? '<div class="note">Opening this from the Facebook app? Sign-in works best in your regular browser: tap the <b>&#8942;</b> or <b>&#8230;</b> menu at the top and choose <b>Open in Safari</b> (or Chrome).</div>'
+    : '';
   const notice = closed
     ? '<div class="err">The Dive Bar isn\'t open yet. Check back soon, or ask Lori, Dawn or Brent.</div>'
+    : err === 'cookies'
+      ? '<div class="err">Your sign-in worked, but this browser didn\'t keep you signed in. That happens inside the Facebook app. Tap the <b>&#8942;</b> or <b>&#8230;</b> menu at the top, choose <b>Open in Safari</b> (or Chrome), and sign in again there.</div>'
     : err === 'nomatch'
       ? '<div class="err">We couldn\'t find that reservation. Check the reservation number on your confirmation and try just your last name. Still stuck? Text Lori, Dawn or Brent.</div>'
       : err === 'missing'
@@ -221,7 +227,7 @@ function gatePage(err, closed) {
   <span class="script">Drifters only</span>
   <h1>The Drifters Dive Bar</h1>
   <p>Dive in with your last name and reservation number for all the details: schedule, events, news and deadlines.</p>
-  ${notice}
+  ${tip}${notice}
   <form method="post" action="/drifters/login" ${closed ? 'hidden' : ''}>
     <label for="ln">Last name</label><input id="ln" name="last_name" autocomplete="family-name" autocapitalize="words" autocorrect="off" spellcheck="false" enterkeyhint="next" required>
     <label for="rn">Reservation number</label><input id="rn" name="res_number" inputmode="numeric" pattern="[0-9 ]*" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" required>
@@ -380,7 +386,8 @@ export async function handleLounge(request, env, url) {
       created_at: now,
       expires_at: now + SESSION_DAYS * 86400000,
     });
-    return redirect('/drifters', {
+    // ?welcome=1 lets the next request tell "cookie did not stick" apart from a cold visit.
+    return redirect('/drifters?welcome=1', {
       'Set-Cookie': `${COOKIE}=${token}; Path=/; Max-Age=${SESSION_DAYS * 86400}; SameSite=Lax; Secure; HttpOnly`,
     });
   }
@@ -400,7 +407,12 @@ export async function handleLounge(request, env, url) {
   }
 
   if (path !== '/drifters') return redirect('/drifters');
-  if (!who || closed) return html(gatePage(url.searchParams.get('err') || '', closed));
+  if (!who || closed) {
+    const inApp = /FBAN|FBAV|FB_IAB|Instagram|Messenger/i.test(request.headers.get('User-Agent') || '');
+    // Arrived straight from a successful sign-in with no session: the browser dropped the cookie.
+    const err = !closed && url.searchParams.get('welcome') === '1' ? 'cookies' : url.searchParams.get('err') || '';
+    return html(gatePage(err, closed, inApp));
+  }
 
   const [posts, events, dates, links] = await Promise.all([
     listLounge(env.DB, 'posts'),
