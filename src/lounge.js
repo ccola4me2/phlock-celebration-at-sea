@@ -27,6 +27,8 @@ import {
   getDrifterSession,
   deleteDrifterSession,
   findCabinForSignIn,
+  insertLoungeSignin,
+  listLoungeSignins,
 } from './db.js';
 import { json, parseCookies, randomToken, sha256Hex } from './util.js';
 
@@ -221,8 +223,8 @@ function gatePage(err, closed) {
   <p>Dive in with your last name and reservation number for all the details: schedule, events, news and deadlines.</p>
   ${notice}
   <form method="post" action="/drifters/login" ${closed ? 'hidden' : ''}>
-    <label for="ln">Last name</label><input id="ln" name="last_name" autocomplete="family-name" required>
-    <label for="rn">Reservation number</label><input id="rn" name="res_number" inputmode="numeric" autocomplete="off" required>
+    <label for="ln">Last name</label><input id="ln" name="last_name" autocomplete="family-name" autocapitalize="words" autocorrect="off" spellcheck="false" enterkeyhint="next" required>
+    <label for="rn">Reservation number</label><input id="rn" name="res_number" inputmode="numeric" pattern="[0-9 ]*" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" required>
     <button class="btn btn-gold" type="submit">Dive In</button>
   </form>
   <p class="help">Any last name on the booking works. Your reservation number is on your booking confirmation. Can't find it? Text Lori (813) 230-7879, Dawn (813) 453-4905 or Brent (561) 777-9911.</p>
@@ -330,9 +332,30 @@ export async function handleLounge(request, env, url) {
     } catch {
       return redirect('/drifters?err=missing');
     }
-    const raw = clip(form.get('last_name'), 80).toLowerCase().replace(/[^a-z' \-]/g, ' ').replace(/\s+/g, ' ').trim();
-    const res = clip(form.get('res_number'), 40).replace(/[^0-9a-z]/gi, '');
-    if (!raw || !res) return redirect('/drifters?err=missing');
+    const nameIn = clip(form.get('last_name'), 80);
+    const resIn = clip(form.get('res_number'), 40);
+    const raw = nameIn.toLowerCase().replace(/[^a-z' \-]/g, ' ').replace(/\s+/g, ' ').trim();
+    const res = resIn.replace(/[^0-9a-z]/gi, '');
+    // Keep a short log of attempts so a "my phone won't let me in" can be read
+    // back exactly as the phone sent it.
+    const log = async (outcome) => {
+      try {
+        await insertLoungeSignin(env.DB, {
+          id: crypto.randomUUID(),
+          created_at: Date.now(),
+          outcome,
+          name_entered: nameIn.slice(0, 80),
+          res_entered: resIn.slice(0, 40),
+          ua: clip(request.headers.get('User-Agent'), 200),
+        });
+      } catch {
+        /* logging never blocks sign-in */
+      }
+    };
+    if (!raw || !res) {
+      await log('missing');
+      return redirect('/drifters?err=missing');
+    }
     // People type "Jim Dunn" or "Dunn, James" in a box labelled last name. Try
     // the whole entry first, then each word (last word first), so any name on
     // the booking gets them in.
@@ -343,7 +366,11 @@ export async function handleLounge(request, env, url) {
       cabin = await findCabinForSignIn(env.DB, res, c);
       if (cabin) break;
     }
-    if (!cabin) return redirect('/drifters?err=nomatch');
+    if (!cabin) {
+      await log('nomatch');
+      return redirect('/drifters?err=nomatch');
+    }
+    await log('ok');
     const token = randomToken(32);
     const now = Date.now();
     await createDrifterSession(env.DB, {
@@ -426,6 +453,10 @@ export async function handleLoungeAdmin(request, env, url) {
   await ensureSchema(env.DB);
   const path = url.pathname;
   const method = request.method.toUpperCase();
+
+  if (path === '/api/admin/lounge/signins' && method === 'GET') {
+    return json({ signins: await listLoungeSignins(env.DB, 100) });
+  }
 
   if (path === '/api/admin/lounge' && method === 'GET') {
     const [settings, posts, events, dates, links] = await Promise.all([

@@ -140,6 +140,14 @@ export async function ensureSchema(db) {
       key TEXT PRIMARY KEY,
       value TEXT
     )`,
+    `CREATE TABLE IF NOT EXISTS lounge_signins (
+      id TEXT PRIMARY KEY,
+      created_at INTEGER NOT NULL,
+      outcome TEXT NOT NULL,
+      name_entered TEXT,
+      res_entered TEXT,
+      ua TEXT
+    )`,
     `CREATE TABLE IF NOT EXISTS drifter_sessions (
       id TEXT PRIMARY KEY,
       cabin_id TEXT NOT NULL,
@@ -572,4 +580,17 @@ export function findCabinForSignIn(db, resNumber, lastNameLower) {
     )
     .bind(resNumber, lastNameLower)
     .first();
+}
+
+// ---- Dive Bar sign-in attempts (for diagnosing "it won't let me in") ----
+export function insertLoungeSignin(db, s) {
+  return db
+    .prepare('INSERT INTO lounge_signins (id, created_at, outcome, name_entered, res_entered, ua) VALUES (?,?,?,?,?,?)')
+    .bind(s.id, s.created_at, s.outcome, s.name_entered, s.res_entered, s.ua)
+    .run();
+}
+
+export async function listLoungeSignins(db, limit = 100) {
+  const rows = await db.prepare('SELECT * FROM lounge_signins ORDER BY created_at DESC LIMIT ?').bind(limit).all();
+  return rows.results || [];
 }
