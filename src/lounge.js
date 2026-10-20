@@ -209,7 +209,7 @@ function gatePage(err, closed) {
   const notice = closed
     ? '<div class="err">The Dive Bar isn\'t open yet. Check back soon, or ask Lori, Dawn or Brent.</div>'
     : err === 'nomatch'
-      ? '<div class="err">We couldn\'t find that booking. Check the last name and booking ID # on your confirmation, or text Lori, Dawn or Brent.</div>'
+      ? '<div class="err">We couldn\'t find that booking. Check the booking ID # on your confirmation and try just your last name. Still stuck? Text Lori, Dawn or Brent.</div>'
       : err === 'missing'
         ? '<div class="err">Please enter both your last name and your booking ID #.</div>'
         : '';
@@ -330,10 +330,19 @@ export async function handleLounge(request, env, url) {
     } catch {
       return redirect('/drifters?err=missing');
     }
-    const last = clip(form.get('last_name'), 80).toLowerCase();
+    const raw = clip(form.get('last_name'), 80).toLowerCase().replace(/[^a-z' \-]/g, ' ').replace(/\s+/g, ' ').trim();
     const res = clip(form.get('res_number'), 40).replace(/[^0-9a-z]/gi, '');
-    if (!last || !res) return redirect('/drifters?err=missing');
-    const cabin = await findCabinForSignIn(env.DB, res, last);
+    if (!raw || !res) return redirect('/drifters?err=missing');
+    // People type "Jim Dunn" or "Dunn, James" in a box labelled last name. Try
+    // the whole entry first, then each word (last word first), so any name on
+    // the booking gets them in.
+    const words = raw.split(' ').filter((w) => w.length >= 2);
+    const candidates = [...new Set([raw, ...words.slice().reverse()])];
+    let cabin = null;
+    for (const c of candidates) {
+      cabin = await findCabinForSignIn(env.DB, res, c);
+      if (cabin) break;
+    }
     if (!cabin) return redirect('/drifters?err=nomatch');
     const token = randomToken(32);
     const now = Date.now();
