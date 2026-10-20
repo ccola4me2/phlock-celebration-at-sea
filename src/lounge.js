@@ -209,23 +209,23 @@ function gatePage(err, closed) {
   const notice = closed
     ? '<div class="err">The Dive Bar isn\'t open yet. Check back soon, or ask Lori, Dawn or Brent.</div>'
     : err === 'nomatch'
-      ? '<div class="err">We couldn\'t find that booking. Check the booking ID # on your confirmation and try just your last name. Still stuck? Text Lori, Dawn or Brent.</div>'
+      ? '<div class="err">We couldn\'t find that reservation. Check the reservation number on your confirmation and try just your last name. Still stuck? Text Lori, Dawn or Brent.</div>'
       : err === 'missing'
-        ? '<div class="err">Please enter both your last name and your booking ID #.</div>'
+        ? '<div class="err">Please enter both your last name and your reservation number.</div>'
         : '';
   return head('Drifters Dive Bar') + `
 <div class="lg-gate"><div class="lg-card">
   <div class="lock">&#128274;</div>
   <span class="script">Drifters only</span>
   <h1>The Drifters Dive Bar</h1>
-  <p>Dive in with your name and booking ID # for all the details: schedule, events, news and deadlines.</p>
+  <p>Dive in with your last name and reservation number for all the details: schedule, events, news and deadlines.</p>
   ${notice}
   <form method="post" action="/drifters/login" ${closed ? 'hidden' : ''}>
     <label for="ln">Last name</label><input id="ln" name="last_name" autocomplete="family-name" required>
-    <label for="rn">Booking ID #</label><input id="rn" name="res_number" inputmode="numeric" autocomplete="off" required>
+    <label for="rn">Reservation number</label><input id="rn" name="res_number" inputmode="numeric" autocomplete="off" required>
     <button class="btn btn-gold" type="submit">Dive In</button>
   </form>
-  <p class="help">Any last name on the booking works. Your booking ID # is the reservation number on your confirmation. Can't find it? Text Lori (813) 230-7879, Dawn (813) 453-4905 or Brent (561) 777-9911.</p>
+  <p class="help">Any last name on the booking works. Your reservation number is on your booking confirmation. Can't find it? Text Lori (813) 230-7879, Dawn (813) 453-4905 or Brent (561) 777-9911.</p>
 </div></div>` + foot('');
 }
 
