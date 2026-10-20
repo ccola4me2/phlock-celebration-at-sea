@@ -35,6 +35,8 @@ import { json, parseCookies, randomToken, sha256Hex } from './util.js';
 const SITE = 'https://parrotheadscruise.com';
 const COOKIE = 'phc_drifter';
 const SESSION_DAYS = 90;
+// A second, short-lived pass rides on the link after sign-in, for browsers that drop the cookie.
+const LINK_HOURS = 24;
 // June 26, 2027, 4:00 PM Eastern.
 const SAIL_AT = Date.UTC(2027, 5, 26, 20, 0, 0);
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -57,7 +59,7 @@ function html(body, status = 200, extraHeaders) {
   return new Response(body, {
     status,
     headers: Object.assign(
-      { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store, private', 'X-Robots-Tag': 'noindex' },
+      { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store, private', 'X-Robots-Tag': 'noindex', 'Referrer-Policy': 'strict-origin-when-cross-origin' },
       extraHeaders || {}
     ),
   });
@@ -107,16 +109,26 @@ function excerpt(text, n = 170) {
 }
 
 // ---- guest sessions ----
-async function currentGuest(request, env) {
-  const token = parseCookies(request)[COOKIE];
+async function sessionFor(env, token) {
   if (!token || !env.DB) return null;
   const sess = await getDrifterSession(env.DB, await sha256Hex(token));
   if (!sess || sess.expires_at < Date.now()) return null;
-  return { cabin_id: sess.cabin_id, name: sess.guest_name || 'Drifter', sid: sess.id };
+  return sess;
 }
 
-async function viewer(request, env) {
-  const guest = await currentGuest(request, env);
+// The cookie first; failing that, the pass carried on the link (?s=) for
+// browsers that refuse to keep cookies (Facebook's in-app browser, some phones).
+async function currentGuest(request, env, url) {
+  const byCookie = await sessionFor(env, parseCookies(request)[COOKIE]);
+  if (byCookie) return { cabin_id: byCookie.cabin_id, name: byCookie.guest_name || 'Drifter', sid: byCookie.id, via: 'cookie' };
+  const t = url ? clip(url.searchParams.get('s'), 80) : '';
+  const byLink = await sessionFor(env, t);
+  if (byLink) return { cabin_id: byLink.cabin_id, name: byLink.guest_name || 'Drifter', sid: byLink.id, via: 'link', token: t };
+  return null;
+}
+
+async function viewer(request, env, url) {
+  const guest = await currentGuest(request, env, url);
   if (guest) return guest;
   // Admins can preview without a guest session.
   const user = await getCurrentUser(request, env);
@@ -198,11 +210,12 @@ function head(title) {
 <main>`;
 }
 
-function foot(who) {
+function foot(who, pass) {
+  const hidden = pass ? `<input type="hidden" name="s" value="${esc(pass)}">` : '';
   return `</main>
 <footer class="site-footer"><div class="container"><div class="footer-bottom lg-foot">
   <span>&copy; 2026&ndash;2027 Prestige Travel Vacations LLC &amp; Turner Travel. The Drifters Dive Bar is private to booked guests.</span>
-  ${who ? `<span>Signed in as ${esc(who)} &middot; <form method="post" action="/drifters/logout" style="display:inline"><button type="submit">Sign out</button></form></span>` : ''}
+  ${who ? `<span>Signed in as ${esc(who)} &middot; <form method="post" action="/drifters/logout" style="display:inline">${hidden}<button type="submit">Sign out</button></form></span>` : ''}
 </div></div></footer>
 <script src="/js/main.js"></script></body></html>`;
 }
@@ -248,13 +261,17 @@ function crewCards() {
 </div></section>`;
 }
 
-function loungePage(who, settings, posts, events, dates, links) {
+function loungePage(who, settings, posts, events, dates, links, pass) {
+  const sfx = pass ? `?s=${encodeURIComponent(pass)}` : '';
+  const linkNote = pass
+    ? `<section style="padding:0;"><div class="container"><div class="lg-pinned" style="margin-top:1.2rem;border-left-color:#1a8fa3;"><span class="tag" style="color:#136f80;">Heads up</span><p>This browser isn't keeping you signed in, so the links on this page carry your sign-in for the next 24 hours. For the smoothest visit, open the Dive Bar in Safari or Chrome and sign in there.</p></div></div></section>`
+    : '';
   const pinned = settings.pinned_title
     ? `<div class="lg-pinned"><span class="tag">Pinned</span><h3>${esc(settings.pinned_title)}</h3>${richText(settings.pinned_body)}</div>`
     : `<div class="lg-pinned"><span class="tag">Welcome</span><h3>You're in.</h3><p>News, the schedule and every deadline for our sailing live here. Check back often.</p></div>`;
 
   const postCards = posts.length
-    ? posts.map((p) => `<div class="card lg-post"><span class="date">${fmtDate(p.post_date)}</span><h3>${esc(p.title)}</h3><p>${esc(excerpt(p.body))}</p><a href="/drifters/post/${esc(p.id)}">Read more &rarr;</a></div>`).join('')
+    ? posts.map((p) => `<div class="card lg-post"><span class="date">${fmtDate(p.post_date)}</span><h3>${esc(p.title)}</h3><p>${esc(excerpt(p.body))}</p><a href="/drifters/post/${esc(p.id)}${sfx}">Read more &rarr;</a></div>`).join('')
     : '<p class="lg-empty">No news yet. Watch this space.</p>';
 
   const byDay = new Map();
@@ -286,7 +303,7 @@ function loungePage(who, settings, posts, events, dates, links) {
   </div>
   ${pinned}
 </div></section>
-
+${linkNote}
 <section><div class="container">
   <div class="section-head"><span class="eyebrow">Latest from the PHlock</span><h2>News &amp; Newsletters</h2></div>
   <div class="grid grid-3">${postCards}</div>
@@ -303,17 +320,18 @@ function loungePage(who, settings, posts, events, dates, links) {
     <div><div class="section-head" style="text-align:left;margin:0 0 1.2rem;"><span class="eyebrow">Handy</span><h2>Documents &amp; links</h2></div>${linkList}</div>
   </div>
 </div></section>
-${crewCards()}` + foot(who);
+${crewCards()}` + foot(who, pass);
 }
 
-function postPage(who, post) {
+function postPage(who, post, pass) {
+  const sfx = pass ? `?s=${encodeURIComponent(pass)}` : '';
   return head(post.title) + `
 <section><div class="container lg-article">
-  <p><a href="/drifters">&larr; Back to the Dive Bar</a></p>
+  <p><a href="/drifters${sfx}">&larr; Back to the Dive Bar</a></p>
   <span class="date">${fmtDate(post.post_date)}</span>
   <h1 style="margin:.3rem 0 1.2rem;">${esc(post.title)}</h1>
   <div class="body">${richText(post.body) || '<p class="lg-empty">This post has no text yet.</p>'}</div>
-</div></section>` + foot(who);
+</div></section>` + foot(who, pass);
 }
 
 // ---- public handler ----
@@ -324,8 +342,16 @@ export async function handleLounge(request, env, url) {
   const method = request.method.toUpperCase();
 
   if (path === '/drifters/logout' && method === 'POST') {
-    const guest = await currentGuest(request, env);
-    if (guest) await deleteDrifterSession(env.DB, guest.sid);
+    let passed = '';
+    try {
+      passed = clip((await request.formData()).get('s'), 80);
+    } catch {
+      /* no body */
+    }
+    const byCookie = await sessionFor(env, parseCookies(request)[COOKIE]);
+    if (byCookie) await deleteDrifterSession(env.DB, byCookie.id);
+    const byLink = await sessionFor(env, passed);
+    if (byLink) await deleteDrifterSession(env.DB, byLink.id);
     return redirect('/drifters', { 'Set-Cookie': `${COOKIE}=; Path=/; Max-Age=0; SameSite=Lax; Secure; HttpOnly` });
   }
 
@@ -378,6 +404,7 @@ export async function handleLounge(request, env, url) {
     }
     await log('ok');
     const token = randomToken(32);
+    const pass = randomToken(24);
     const now = Date.now();
     await createDrifterSession(env.DB, {
       id: await sha256Hex(token),
@@ -386,24 +413,36 @@ export async function handleLounge(request, env, url) {
       created_at: now,
       expires_at: now + SESSION_DAYS * 86400000,
     });
-    // ?welcome=1 lets the next request tell "cookie did not stick" apart from a cold visit.
-    return redirect('/drifters?welcome=1', {
+    await createDrifterSession(env.DB, {
+      id: await sha256Hex(pass),
+      cabin_id: cabin.id,
+      guest_name: clip(cabin.name, 120),
+      created_at: now,
+      expires_at: now + LINK_HOURS * 3600000,
+    });
+    // The pass on the link gets a cookie-blocking browser in; a browser that kept
+    // the cookie is sent straight to the clean address on arrival.
+    return redirect(`/drifters?welcome=1&s=${pass}`, {
       'Set-Cookie': `${COOKIE}=${token}; Path=/; Max-Age=${SESSION_DAYS * 86400}; SameSite=Lax; Secure; HttpOnly`,
     });
   }
 
   if (method !== 'GET' && method !== 'HEAD') return new Response('Method not allowed', { status: 405 });
 
-  const who = await viewer(request, env);
+  const who = await viewer(request, env, url);
   const settings = await getLoungeSettings(env.DB);
   const closed = settings.enabled === '0' && !(who && who.admin);
+  // Cookie worked: keep the pass out of the address bar and history.
+  if (who && who.via !== 'link' && url.searchParams.has('s')) return redirect(path);
+  const pass = who && who.via === 'link' ? who.token : '';
+  const sfx = pass ? `?s=${encodeURIComponent(pass)}` : '';
 
   const postMatch = /^\/drifters\/post\/([A-Za-z0-9-]{1,60})$/.exec(path);
   if (postMatch) {
     if (!who || closed) return redirect('/drifters');
     const post = await getLoungeRow(env.DB, 'posts', postMatch[1]);
-    if (!post || (!post.published && !who.admin)) return html(head('Not found') + '<section><div class="container"><p>That post isn\'t available. <a href="/drifters">Back to the Dive Bar</a></p></div></section>' + foot(who.name), 404);
-    return html(postPage(who.name, post));
+    if (!post || (!post.published && !who.admin)) return html(head('Not found') + `<section><div class="container"><p>That post isn't available. <a href="/drifters${sfx}">Back to the Dive Bar</a></p></div></section>` + foot(who.name, pass), 404);
+    return html(postPage(who.name, post, pass));
   }
 
   if (path !== '/drifters') return redirect('/drifters');
@@ -420,7 +459,7 @@ export async function handleLounge(request, env, url) {
     listLounge(env.DB, 'dates'),
     listLounge(env.DB, 'links'),
   ]);
-  return html(loungePage(who.name, settings, posts.filter((p) => p.published || who.admin), events, dates, links));
+  return html(loungePage(who.name, settings, posts.filter((p) => p.published || who.admin), events, dates, links, pass));
 }
 
 // ---- admin API ----
