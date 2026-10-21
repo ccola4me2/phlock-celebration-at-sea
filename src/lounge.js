@@ -29,6 +29,12 @@ import {
   findCabinForSignIn,
   insertLoungeSignin,
   listLoungeSignins,
+  getCabin,
+  insertSubscriber,
+  listSubscribersForCabin,
+  listSubscribers,
+  deleteSubscriberByToken,
+  setPostEmailed,
 } from './db.js';
 import { json, parseCookies, randomToken, sha256Hex } from './util.js';
 
@@ -172,6 +178,23 @@ const CSS = `
   .lg-doc { display:flex; align-items:center; gap:.9rem; padding:.9rem 1rem; background:#fff; border:1px solid var(--cream-dark); border-radius:10px; text-decoration:none; }
   .lg-doc .ic { width:38px; height:38px; border-radius:9px; background:var(--navy-900); color:var(--gold); display:flex; align-items:center; justify-content:center; flex:none; }
   .lg-doc b { display:block; color:var(--navy-900); } .lg-doc small { color:var(--ink-soft); }
+  .lg-you { display:grid; grid-template-columns:1fr 1fr; gap:1.4rem; margin-top:-1.6rem; position:relative; z-index:2; }
+  .lg-you .card { padding:1.4rem 1.5rem; }
+  .lg-you .eyebrow { display:block; margin-bottom:.4rem; }
+  .lg-cabin-no { font-family:var(--font-display); font-size:2.6rem; line-height:1; color:var(--navy-900); margin:.1rem 0 .3rem; }
+  .lg-cabin-no small { font-family:var(--font-body); font-size:.8rem; color:var(--ink-soft); letter-spacing:.08em; text-transform:uppercase; margin-left:.5rem; }
+  .lg-kv { margin:0; padding:0; list-style:none; font-size:.95rem; color:var(--ink); }
+  .lg-kv li { display:flex; gap:.6rem; padding:.3rem 0; border-top:1px solid var(--cream-dark); }
+  .lg-kv li:first-child { border-top:none; }
+  .lg-kv li span:first-child { flex:none; width:110px; color:var(--ink-soft); font-size:.78rem; letter-spacing:.08em; text-transform:uppercase; padding-top:.15em; }
+  .lg-badge { display:inline-block; background:var(--navy-900); color:var(--gold-light); font-size:.7rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; padding:.25em .7em; border-radius:999px; }
+  .lg-sub form { display:flex; gap:.6rem; flex-wrap:wrap; margin-top:.6rem; }
+  .lg-sub input[type=email] { flex:1 1 200px; padding:.75em .9em; font:inherit; border:1px solid var(--cream-dark); border-radius:10px; background:#fff; }
+  .lg-sub .btn { border:none; cursor:pointer; font:inherit; }
+  .lg-sub .ok { background:#e6f4ea; color:#1e6b3a; border-radius:8px; padding:.6em .9em; font-size:.9rem; margin:.5rem 0 0; }
+  .lg-sub .err { background:#fdecec; color:#8a2a2a; border-radius:8px; padding:.6em .9em; font-size:.9rem; margin:.5rem 0 0; }
+  .lg-sub .list { margin:.6rem 0 0; padding:0; list-style:none; font-size:.9rem; color:var(--ink-soft); }
+  @media (max-width: 760px) { .lg-you { grid-template-columns:1fr; margin-top:1rem; } }
   .lg-empty { color:var(--ink-soft); text-align:center; padding:1rem 0; }
   .bg-navy .lg-empty { color:rgba(255,255,255,.6); }
   .lg-gate { min-height:70vh; display:flex; align-items:center; justify-content:center; padding:3rem 1rem; background:linear-gradient(180deg, rgba(6,15,28,.82), rgba(6,15,28,.90)), url("/assets/img/ship-exterior.jpg") center 60%/cover no-repeat; }
@@ -261,8 +284,53 @@ function crewCards() {
 </div></section>`;
 }
 
-function loungePage(who, settings, posts, events, dates, links, pass) {
+function yourCabinCard(cabin, extra) {
+  if (!cabin) {
+    return `<div class="card"><span class="eyebrow">Your cabin</span><p class="lg-empty" style="text-align:left;padding:.3rem 0 0;">${extra && extra.admin ? 'Admin preview: each guest sees their own cabin here.' : 'We couldn\'t load your cabin. Text your advisor and we\'ll sort it.'}</p></div>`;
+  }
+  const drifter = String(cabin.drifter || '').toLowerCase();
+  const badge = drifter === 'current' ? 'Returning Drifter' : drifter === 'new' ? 'New Drifter' : '';
+  return `<div class="card">
+    <span class="eyebrow">Your cabin</span>
+    <div class="lg-cabin-no">${cabin.cabin_number ? esc(cabin.cabin_number) : 'TBA'}${cabin.cabin_number ? '' : '<small>Assigned closer to sailing</small>'}</div>
+    <ul class="lg-kv">
+      ${cabin.cabin_type ? `<li><span>Type</span><span>${esc(cabin.cabin_type)}</span></li>` : ''}
+      <li><span>Sailing as</span><span>${esc(cabin.name)}</span></li>
+      <li><span>Reservation</span><span>${esc(cabin.res_number)}</span></li>
+      ${badge ? `<li><span>Status</span><span><span class="lg-badge">${badge}</span></span></li>` : ''}
+    </ul>
+    <p class="lg-empty" style="text-align:left;padding:.7rem 0 0;font-size:.85rem;">Something look off? Text Lori, Dawn or Brent and we'll fix it.</p>
+  </div>`;
+}
+
+function emailCard(subs, extra, sfx, pass) {
+  const state = extra ? extra.sub : '';
+  const msg = state === 'ok'
+    ? '<p class="ok">You\'re on the list. We\'ll email you when there\'s news.</p>'
+    : state === 'dup'
+      ? '<p class="ok">That email is already on the list for your cabin.</p>'
+      : state === 'bad'
+        ? '<p class="err">That email address doesn\'t look right. Try again?</p>'
+        : '';
+  const list = subs && subs.length
+    ? `<ul class="list">${subs.map((s) => `<li>&#10003; ${esc(s.email)}</li>`).join('')}</ul>`
+    : '';
+  return `<div class="card lg-sub">
+    <span class="eyebrow">Stay in the loop</span>
+    <h3 style="margin:0 0 .3rem;">Get Dive Bar updates by email</h3>
+    <p style="margin:0;color:var(--ink-soft);font-size:.95rem;">New posts, schedule changes and deadline reminders, straight to your inbox. One email per cabin is plenty; add two if you like.</p>
+    ${msg}${list}
+    <form method="post" action="/drifters/email${sfx}">
+      ${pass ? `<input type="hidden" name="s" value="${esc(pass)}">` : ''}
+      <input type="email" name="email" placeholder="you@example.com" autocomplete="email" autocapitalize="off" required>
+      <button class="btn btn-gold" type="submit">${subs && subs.length ? 'Add another' : 'Keep me posted'}</button>
+    </form>
+  </div>`;
+}
+
+function loungePage(who, settings, posts, events, dates, links, pass, extra) {
   const sfx = pass ? `?s=${encodeURIComponent(pass)}` : '';
+  const youSection = `<section style="padding-bottom:0;"><div class="container"><div class="lg-you">${yourCabinCard(extra && extra.cabin, extra)}${emailCard(extra && extra.subs, extra, sfx, pass)}</div></div></section>`;
   const linkNote = pass
     ? `<section style="padding:0;"><div class="container"><div class="lg-pinned" style="margin-top:1.2rem;border-left-color:#1a8fa3;"><span class="tag" style="color:#136f80;">Heads up</span><p>This browser isn't keeping you signed in, so the links on this page carry your sign-in for the next 24 hours. For the smoothest visit, open the Dive Bar in Safari or Chrome and sign in there.</p></div></div></section>`
     : '';
@@ -304,6 +372,7 @@ function loungePage(who, settings, posts, events, dates, links, pass) {
   ${pinned}
 </div></section>
 ${linkNote}
+${youSection}
 <section><div class="container">
   <div class="section-head"><span class="eyebrow">Latest from the PHlock</span><h2>News &amp; Newsletters</h2></div>
   <div class="grid grid-3">${postCards}</div>
@@ -427,6 +496,33 @@ export async function handleLounge(request, env, url) {
     });
   }
 
+  if (path === '/drifters/email' && method === 'POST') {
+    let form;
+    try {
+      form = await request.formData();
+    } catch {
+      return redirect('/drifters');
+    }
+    // The link pass may arrive in the form (cookie-blocking browsers) or the query.
+    const passed = clip(form.get('s'), 80) || clip(url.searchParams.get('s'), 80);
+    const guest = await currentGuest(request, env, new URL(`/drifters?s=${encodeURIComponent(passed)}`, SITE));
+    if (!guest || !guest.cabin_id) return redirect('/drifters');
+    const back = `/drifters${guest.via === 'link' ? `?s=${encodeURIComponent(guest.token)}&` : '?'}sub=`;
+    const email = clip(form.get('email'), 160).toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return redirect(back + 'bad#updates');
+    const existing = await listSubscribersForCabin(env.DB, guest.cabin_id);
+    if (existing.some((s) => s.email === email)) return redirect(back + 'dup#updates');
+    await insertSubscriber(env.DB, { id: crypto.randomUUID(), cabin_id: guest.cabin_id, email, token: randomToken(24), created_at: Date.now() });
+    return redirect(back + 'ok#updates');
+  }
+
+  if (path === '/drifters/email/unsubscribe' && (method === 'GET' || method === 'POST')) {
+    const t = clip(url.searchParams.get('t'), 80);
+    if (t) await deleteSubscriberByToken(env.DB, t);
+    if (method === 'POST') return new Response('OK');
+    return html(head('Unsubscribed') + '<section><div class="container lg-article"><h1>You\'re unsubscribed</h1><p>No more Dive Bar emails to this address. The page itself is still yours: <a href="/drifters">parrotheadscruise.com/drifters</a>.</p></div></section>' + foot(''));
+  }
+
   if (method !== 'GET' && method !== 'HEAD') return new Response('Method not allowed', { status: 405 });
 
   const who = await viewer(request, env, url);
@@ -453,13 +549,68 @@ export async function handleLounge(request, env, url) {
     return html(gatePage(err, closed, inApp));
   }
 
-  const [posts, events, dates, links] = await Promise.all([
+  const [posts, events, dates, links, cabin, subs] = await Promise.all([
     listLounge(env.DB, 'posts'),
     listLounge(env.DB, 'events'),
     listLounge(env.DB, 'dates'),
     listLounge(env.DB, 'links'),
+    who.cabin_id ? getCabin(env.DB, who.cabin_id) : null,
+    who.cabin_id ? listSubscribersForCabin(env.DB, who.cabin_id) : [],
   ]);
-  return html(loungePage(who.name, settings, posts.filter((p) => p.published || who.admin), events, dates, links, pass));
+  const extra = { cabin, subs, admin: !!who.admin, sub: clip(url.searchParams.get('sub'), 8) };
+  return html(loungePage(who.name, settings, posts.filter((p) => p.published || who.admin), events, dates, links, pass, extra));
+}
+
+// ---- emailing a post to subscribers (Resend, batches of 100) ----
+function postEmailHtml(env, post, unsub) {
+  const postal = clip(env.DRIP_POSTAL_ADDRESS, 200);
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(post.title)}</title></head>
+<body style="margin:0;padding:0;background:#f5efe2;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5efe2;padding:24px 12px;"><tr><td align="center">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;">
+  <tr><td style="background:#081627;padding:24px 32px;text-align:center;">
+    <div style="font-size:11px;letter-spacing:3px;color:#e3c878;text-transform:uppercase;">Drifters Dive Bar</div>
+    <div style="font-size:22px;font-weight:bold;color:#ffffff;letter-spacing:1px;">Parrothead Day Cruise 2027</div>
+  </td></tr>
+  <tr><td style="padding:30px 32px 8px;">
+    <div style="font-size:12px;letter-spacing:2px;color:#c9a545;text-transform:uppercase;font-weight:bold;">${esc(fmtDate(post.post_date))}</div>
+    <h1 style="margin:6px 0 16px;font-size:22px;line-height:1.3;color:#081627;">${esc(post.title)}</h1>
+    <div style="font-size:16px;line-height:1.6;color:#22303d;">${richText(post.body).replace(/<p>/g, '<p style="margin:0 0 14px;">')}</div>
+  </td></tr>
+  <tr><td style="padding:4px 32px 30px;" align="center">
+    <a href="${SITE}/drifters" style="display:inline-block;background:#c9a545;color:#081627;text-decoration:none;font-weight:bold;font-size:16px;padding:13px 26px;border-radius:8px;">Open the Dive Bar</a>
+  </td></tr>
+  <tr><td style="background:#f5efe2;padding:16px 32px;font-size:12px;line-height:1.6;color:#55606c;text-align:center;">
+    You asked for Dive Bar updates on parrotheadscruise.com. <a href="${unsub}" style="color:#123152;">Unsubscribe</a> any time.<br>
+    Prestige Travel Vacations LLC &amp; Turner Travel${postal ? ' &middot; ' + esc(postal) : ''}
+  </td></tr>
+</table></td></tr></table></body></html>`;
+}
+
+async function emailPost(env, post, subs) {
+  const key = env.RESEND_API_KEY;
+  if (!key) return { sent: 0, failed: subs.length, error: 'no_resend_key' };
+  const from = env.MAIL_FROM || 'Parrothead Day Cruise <noreply@parrotheadscruise.com>';
+  const replyTo = String(env.DRIP_REPLY_TO || env.LEAD_NOTIFY_EMAILS || '').split(',').map((s) => s.trim()).filter(Boolean);
+  const text = `${post.title}\n\n${String(post.body || '')}\n\nOpen the Dive Bar: ${SITE}/drifters`;
+  let sent = 0;
+  let failed = 0;
+  for (let i = 0; i < subs.length; i += 100) {
+    const batch = subs.slice(i, i + 100).map((s) => {
+      const unsub = `${SITE}/drifters/email/unsubscribe?t=${encodeURIComponent(s.token)}`;
+      const msg = { from, to: [s.email], subject: `Drifters Dive Bar: ${post.title}`, html: postEmailHtml(env, post, unsub), text: `${text}\nUnsubscribe: ${unsub}`, headers: { 'List-Unsubscribe': `<${unsub}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' } };
+      if (replyTo.length) msg.reply_to = replyTo;
+      return msg;
+    });
+    try {
+      const res = await fetch('https://api.resend.com/emails/batch', { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify(batch) });
+      if (res.ok) sent += batch.length;
+      else failed += batch.length;
+    } catch {
+      failed += batch.length;
+    }
+  }
+  return { sent, failed };
 }
 
 // ---- admin API ----
@@ -509,6 +660,16 @@ export async function handleLoungeAdmin(request, env, url) {
     return json({ signins: await listLoungeSignins(env.DB, 100) });
   }
 
+  if (path === '/api/admin/lounge/subscribers' && method === 'GET') {
+    const subs = await listSubscribers(env.DB);
+    if (url.searchParams.get('format') === 'csv') {
+      const escCsv = (v) => { const s = String(v == null ? '' : v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+      const lines = ['email,cabin,name,subscribed_at'].concat(subs.map((s) => [s.email, s.cabin_number, s.cabin_name, new Date(s.created_at).toISOString()].map(escCsv).join(',')));
+      return new Response(lines.join('\n'), { headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="dive-bar-subscribers.csv"', 'Cache-Control': 'no-store' } });
+    }
+    return json({ subscribers: subs });
+  }
+
   if (path === '/api/admin/lounge' && method === 'GET') {
     const [settings, posts, events, dates, links] = await Promise.all([
       getLoungeSettings(env.DB),
@@ -533,6 +694,18 @@ export async function handleLoungeAdmin(request, env, url) {
     if (body.pinned_title !== undefined) await setLoungeSetting(env.DB, 'pinned_title', clip(body.pinned_title, 160));
     if (body.pinned_body !== undefined) await setLoungeSetting(env.DB, 'pinned_body', clip(body.pinned_body, 2000));
     return json({ ok: true, settings: await getLoungeSettings(env.DB) });
+  }
+
+  if (path === '/api/admin/lounge/posts/send') {
+    const id = clip(body.id, 60);
+    const post = id && (await getLoungeRow(env.DB, 'posts', id));
+    if (!post) return json({ error: 'not_found' }, 404);
+    if (!post.published) return json({ error: 'unpublished' }, 400);
+    const subs = await listSubscribers(env.DB);
+    if (!subs.length) return json({ ok: true, sent: 0, failed: 0 });
+    const r = await emailPost(env, post, subs);
+    if (r.sent) await setPostEmailed(env.DB, post.id, Date.now());
+    return json(Object.assign({ ok: true }, r));
   }
 
   const m = /^\/api\/admin\/lounge\/(posts|events|dates|links)(?:\/(delete))?$/.exec(path);

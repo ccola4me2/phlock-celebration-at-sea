@@ -47,8 +47,19 @@
       <button class="a-btn" type="button" data-add="posts">+ New post</button>
     </div>
     <p class="a-hint">Shown newest first. Unpublished posts are visible only to admins previewing the Dive Bar.</p>
-    <table class="a-table"><thead><tr><th>Date</th><th>Title</th><th>Status</th><th></th></tr></thead><tbody id="tb-posts"></tbody></table>
+    <table class="a-table"><thead><tr><th>Date</th><th>Title</th><th>Status</th><th>Email</th><th></th></tr></thead><tbody id="tb-posts"></tbody></table>
     <p class="a-hint" id="empty-posts" hidden>No posts yet.</p>
+    <p class="a-msg" id="sendMsg" hidden></p>
+  </div>
+
+  <div class="a-card" style="margin-bottom:1.3rem;">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
+      <h2 style="margin:0;font-size:1.1rem;">Email subscribers <span id="subCount" style="font-size:0.85rem;color:var(--a-soft);font-weight:400;"></span></h2>
+      <a class="a-btn a-btn-ghost" href="/api/admin/lounge/subscribers?format=csv" download>Export CSV</a>
+    </div>
+    <p class="a-hint">Guests who asked for updates on the Dive Bar. "Email to subscribers" on a post sends it to everyone here, from noreply@parrotheadscruise.com with replies going to Lori, Dawn and Brent.</p>
+    <table class="a-table"><thead><tr><th>Email</th><th>Cabin</th><th>Subscribed</th></tr></thead><tbody id="tb-subs"></tbody></table>
+    <p class="a-hint" id="empty-subs" hidden>Nobody has subscribed yet. Guests see the sign-up box on the Dive Bar.</p>
   </div>
 
   <div class="a-card" style="margin-bottom:1.3rem;" data-type="events">
@@ -113,7 +124,7 @@
       { k: 'post_date', l: 'Date', t: 'date' },
       { k: 'published', l: 'Published', t: 'checkbox', def: true },
       { k: 'body', l: 'Text (blank line between paragraphs; links become clickable)', t: 'textarea', full: true, rows: 10 } ],
-      row: function (p) { return [fmtDate(p.post_date), '<strong>' + esc(p.title) + '</strong>', p.published ? 'Published' : '<span style="color:var(--a-soft);">Draft</span>']; } },
+      row: function (p) { return [fmtDate(p.post_date), '<strong>' + esc(p.title) + '</strong>', p.published ? 'Published' : '<span style="color:var(--a-soft);">Draft</span>', p.published ? ((p.emailed_at ? '<span style="color:var(--a-soft);font-size:0.8rem;">Emailed ' + new Date(p.emailed_at).toLocaleDateString() + '</span><br>' : '') + '<button class="a-btn a-btn-ghost" data-send="' + p.id + '" style="padding:0.3em 0.6em;font-size:0.8rem;">' + (p.emailed_at ? 'Send again' : 'Email to subscribers') + '</button>') : '<span style="color:var(--a-soft);font-size:0.8rem;">Publish first</span>']; } },
     events: { label: 'event', fields: [
       { k: 'day', l: 'Day', t: 'date' },
       { k: 'start_time', l: 'Start time', t: 'time' },
@@ -153,6 +164,29 @@
     tb.querySelectorAll('[data-edit]').forEach(function (b) {
       b.onclick = function () { var p = b.getAttribute('data-edit').split(':'); openEdit(p[0], data[p[0]].find(function (x) { return x.id === p[1]; })); };
     });
+    tb.querySelectorAll('[data-send]').forEach(function (b) {
+      b.onclick = async function () {
+        var id = b.getAttribute('data-send'), post = data.posts.find(function (x) { return x.id === id; });
+        var n = (data.subscribers || []).length, m = $('sendMsg');
+        if (!n) { m.hidden = false; m.className = 'a-msg err'; m.textContent = 'No subscribers yet, nothing to send.'; return; }
+        if (!confirm('Email "' + post.title + '" to ' + n + ' subscriber' + (n === 1 ? '' : 's') + (post.emailed_at ? ' again' : '') + '?')) return;
+        b.disabled = true;
+        var res = await fetch('/api/admin/lounge/posts/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id }) });
+        var d = await res.json().catch(function () { return {}; });
+        m.hidden = false; m.className = 'a-msg ' + (res.ok && !d.failed ? 'ok' : 'err');
+        m.textContent = res.ok ? 'Sent to ' + d.sent + (d.failed ? ', ' + d.failed + ' failed' : '') + (d.error === 'no_resend_key' ? ' (email is not configured)' : '') + ' ✓' : 'Could not send.';
+        load();
+      };
+    });
+  }
+
+  function renderSubs() {
+    var subs = data.subscribers || [];
+    $('subCount').textContent = subs.length ? '· ' + subs.length : '';
+    $('empty-subs').hidden = subs.length > 0;
+    $('tb-subs').innerHTML = subs.map(function (s) {
+      return '<tr><td>' + esc(s.email) + '</td><td>' + esc((s.cabin_number ? s.cabin_number + ' · ' : '') + (s.cabin_name || '')) + '</td><td style="white-space:nowrap;">' + new Date(s.created_at).toLocaleDateString() + '</td></tr>';
+    }).join('');
   }
 
   async function load() {
@@ -160,6 +194,8 @@
       var res = await fetch('/api/admin/lounge');
       if (!res.ok) throw new Error('http ' + res.status);
       data = await res.json();
+      try { data.subscribers = (await (await fetch('/api/admin/lounge/subscribers')).json()).subscribers || []; } catch (e) { data.subscribers = []; }
+      renderSubs();
       $('pinTitle').value = data.settings.pinned_title || '';
       $('pinBody').value = data.settings.pinned_body || '';
       $('enabled').checked = data.settings.enabled !== '0';

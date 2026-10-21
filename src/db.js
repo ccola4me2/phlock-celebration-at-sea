@@ -140,6 +140,15 @@ export async function ensureSchema(db) {
       key TEXT PRIMARY KEY,
       value TEXT
     )`,
+    `CREATE TABLE IF NOT EXISTS lounge_subscribers (
+      id TEXT PRIMARY KEY,
+      cabin_id TEXT NOT NULL,
+      email TEXT NOT NULL,
+      token TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    )`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_lounge_subs_cabin_email ON lounge_subscribers(cabin_id, email)`,
+    `CREATE INDEX IF NOT EXISTS idx_lounge_subs_token ON lounge_subscribers(token)`,
     `CREATE TABLE IF NOT EXISTS lounge_signins (
       id TEXT PRIMARY KEY,
       created_at INTEGER NOT NULL,
@@ -174,6 +183,8 @@ export async function ensureSchema(db) {
     'CREATE INDEX IF NOT EXISTS idx_leads_unsub ON leads(unsub_token)',
     // Cabin availability: 'booked' (has guests) or 'available' (open to sell).
     "ALTER TABLE cabins ADD COLUMN status TEXT NOT NULL DEFAULT 'booked'",
+    // Dive Bar posts remember when they were emailed to subscribers.
+    'ALTER TABLE lounge_posts ADD COLUMN emailed_at INTEGER',
   ];
   for (const sql of migrations) {
     try {
@@ -593,4 +604,40 @@ export function insertLoungeSignin(db, s) {
 export async function listLoungeSignins(db, limit = 100) {
   const rows = await db.prepare('SELECT * FROM lounge_signins ORDER BY created_at DESC LIMIT ?').bind(limit).all();
   return rows.results || [];
+}
+
+export function getCabin(db, id) {
+  return db.prepare('SELECT * FROM cabins WHERE id = ?').bind(id).first();
+}
+
+// ---- Dive Bar email subscribers (opt-in, per cabin) ----
+export function insertSubscriber(db, s) {
+  return db
+    .prepare('INSERT OR IGNORE INTO lounge_subscribers (id, cabin_id, email, token, created_at) VALUES (?,?,?,?,?)')
+    .bind(s.id, s.cabin_id, s.email, s.token, s.created_at)
+    .run();
+}
+
+export async function listSubscribersForCabin(db, cabinId) {
+  const rows = await db.prepare('SELECT * FROM lounge_subscribers WHERE cabin_id = ? ORDER BY created_at ASC').bind(cabinId).all();
+  return rows.results || [];
+}
+
+export async function listSubscribers(db) {
+  const rows = await db
+    .prepare(
+      `SELECT s.*, c.name AS cabin_name, c.cabin_number
+       FROM lounge_subscribers s LEFT JOIN cabins c ON c.id = s.cabin_id
+       ORDER BY s.created_at DESC LIMIT 2000`
+    )
+    .all();
+  return rows.results || [];
+}
+
+export function deleteSubscriberByToken(db, token) {
+  return db.prepare('DELETE FROM lounge_subscribers WHERE token = ?').bind(token).run();
+}
+
+export function setPostEmailed(db, id, ts) {
+  return db.prepare('UPDATE lounge_posts SET emailed_at = ? WHERE id = ?').bind(ts, id).run();
 }
