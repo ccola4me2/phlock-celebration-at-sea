@@ -187,7 +187,7 @@ const CSS = `
   .lg-kv li { display:flex; gap:.6rem; padding:.3rem 0; border-top:1px solid var(--cream-dark); }
   .lg-kv li:first-child { border-top:none; }
   .lg-kv li span:first-child { flex:none; width:110px; color:var(--ink-soft); font-size:.78rem; letter-spacing:.08em; text-transform:uppercase; padding-top:.15em; }
-  .lg-badge { display:inline-block; background:var(--navy-900); color:var(--gold-light); font-size:.7rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; padding:.25em .7em; border-radius:999px; }
+  .lg-badge { display:inline-block; white-space:nowrap; background:var(--navy-900); color:var(--gold-light); font-size:.7rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; padding:.25em .7em; border-radius:999px; }
   .lg-sub form { display:flex; gap:.6rem; flex-wrap:wrap; margin-top:.6rem; }
   .lg-sub input[type=email] { flex:1 1 200px; padding:.75em .9em; font:inherit; border:1px solid var(--cream-dark); border-radius:10px; background:#fff; }
   .lg-sub .btn { border:none; cursor:pointer; font:inherit; }
@@ -330,7 +330,7 @@ function emailCard(subs, extra, sfx, pass) {
 
 function loungePage(who, settings, posts, events, dates, links, pass, extra) {
   const sfx = pass ? `?s=${encodeURIComponent(pass)}` : '';
-  const youSection = `<section style="padding-bottom:0;"><div class="container"><div class="lg-you">${yourCabinCard(extra && extra.cabin, extra)}${emailCard(extra && extra.subs, extra, sfx, pass)}</div></div></section>`;
+  const youSection = `<section id="updates" style="padding-bottom:0;"><div class="container"><div class="lg-you">${yourCabinCard(extra && extra.cabin, extra)}${emailCard(extra && extra.subs, extra, sfx, pass)}</div></div></section>`;
   const linkNote = pass
     ? `<section style="padding:0;"><div class="container"><div class="lg-pinned" style="margin-top:1.2rem;border-left-color:#1a8fa3;"><span class="tag" style="color:#136f80;">Heads up</span><p>This browser isn't keeping you signed in, so the links on this page carry your sign-in for the next 24 hours. For the smoothest visit, open the Dive Bar in Safari or Chrome and sign in there.</p></div></div></section>`
     : '';
