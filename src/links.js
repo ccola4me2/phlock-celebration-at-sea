@@ -17,7 +17,7 @@ import { json } from './util.js';
 const SITE = 'https://parrotheadscruise.com';
 const PREFIX = '/go/';
 const CODE_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const PAGES = ['/', '/pricing', '/faq', '/charity', '/team', '/contact'];
+const PAGES = ['/', '/pricing', '/faq', '/charity', '/team', '/contact', '/fb', '/fb/balcony', '/fb/keywest', '/fb/charity', '/fb/drifters'];
 const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content'];
 
 function clip(s, n) {
