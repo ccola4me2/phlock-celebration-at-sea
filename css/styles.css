@@ -1141,6 +1141,17 @@ blockquote.quote-card {
     url("../assets/img/charity-hero.jpg") center 32% / cover no-repeat;
 }
 
+/* Cruising for Change logo (2026 artwork, navy version on the dark hero) */
+.cfc-logo-img {
+  display: block;
+  width: clamp(300px, 46vw, 560px);
+  height: auto;
+  margin: 0 auto var(--space-3);
+  border-radius: 18px;
+  border: 1px solid rgba(201, 165, 69, 0.45);
+  box-shadow: 0 26px 60px rgba(0, 0, 0, 0.5);
+}
+
 /* Cruising for Change animated logo medallion */
 @keyframes cfcParrotEnter {
   0%   { opacity: 0; transform: translate(40%, -36%) rotate(18deg) scale(0.75); }
