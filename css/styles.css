@@ -1137,8 +1137,20 @@ blockquote.quote-card {
 
 .hero.charity-hero {
   background:
-    linear-gradient(180deg, rgba(6, 15, 28, 0.72) 0%, rgba(6, 15, 28, 0.5) 45%, rgba(6, 15, 28, 0.82) 100%),
+    linear-gradient(180deg, rgba(6, 15, 28, 0.5) 0%, rgba(6, 15, 28, 0.32) 45%, rgba(6, 15, 28, 0.7) 100%),
     url("../assets/img/charity-hero.jpg") center 32% / cover no-repeat;
+}
+/* Lighter photo behind the hero, so the text gets a little shadow to stay crisp */
+.charity-hero .hero-script,
+.charity-hero .hero-dates,
+.charity-hero .hero-lede { text-shadow: 0 1px 10px rgba(6, 15, 28, 0.7); }
+/* Transparent Cruising for Change logo floating over the photo */
+.cfc-logo-float {
+  display: block;
+  width: clamp(320px, 52vw, 640px);
+  height: auto;
+  margin: 0 auto var(--space-2);
+  filter: drop-shadow(0 12px 28px rgba(6, 15, 28, 0.6));
 }
 
 /* Cruising for Change logo (2026 artwork, navy version on the dark hero) */
