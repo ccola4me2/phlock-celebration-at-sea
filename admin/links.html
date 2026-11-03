@@ -8,6 +8,7 @@
 <link rel="icon" type="image/png" href="/assets/img/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/admin.css">
+<script src="/js/vendor/qrcode.min.js"></script>
 </head>
 <body>
 <div class="a-bar">
@@ -113,6 +114,17 @@
         <div class="a-msg ok" id="shortMsg" hidden>Copied to clipboard ✓</div>
       </div>
       <div class="a-msg err" id="shortErr" hidden></div>
+      <hr style="border:none;border-top:1px solid var(--a-line);margin:1.2rem 0;">
+      <h3 style="margin:0 0 0.3rem;font-size:0.95rem;">QR code (for flyers, table tents, shirts)</h3>
+      <p class="a-hint" style="margin-top:0;" id="qrHint"></p>
+      <div style="display:flex;gap:1rem;align-items:flex-start;flex-wrap:wrap;">
+        <img id="qrImg" alt="QR code" width="168" height="168" style="width:168px;height:168px;border:1px solid var(--a-line);border-radius:8px;background:#fff;">
+        <div style="display:flex;flex-direction:column;gap:0.5rem;">
+          <button class="a-btn" id="qrPng" type="button">Download PNG</button>
+          <button class="a-btn a-btn-ghost" id="qrSvg" type="button">Download SVG</button>
+          <span class="a-hint" style="margin:0;">PNG is 1200 px, plenty for print. SVG scales to any size.</span>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -154,7 +166,66 @@
     $('output').value = str;
     $('preview').textContent = str;
     if (!codeTouched) $('shortCode').value = suggestCode();
+    shortLive = '';
+    $('shortResult').hidden = true;
+    drawQr();
   }
+
+  // ---- QR code ----
+  // Encodes the short link once one has been created (fewer modules, cleaner
+  // print), otherwise the full trackable link. Always rendered locally.
+  var shortLive = '';
+  function qrTarget() { return shortLive || $('output').value; }
+  function makeQr(text) {
+    var q = qrcode(0, 'M');
+    q.addData(text);
+    q.make();
+    return q;
+  }
+  function qrCanvas(q, size) {
+    var n = q.getModuleCount(), quiet = 4, cell = Math.floor(size / (n + quiet * 2));
+    var px = cell * (n + quiet * 2);
+    var c = document.createElement('canvas'); c.width = px; c.height = px;
+    var g = c.getContext('2d');
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, px, px);
+    g.fillStyle = '#0b1a2e';
+    for (var r = 0; r < n; r++) for (var col = 0; col < n; col++) if (q.isDark(r, col)) g.fillRect((col + quiet) * cell, (r + quiet) * cell, cell, cell);
+    return c;
+  }
+  function qrFileBase() {
+    var t = qrTarget();
+    var m = /\/go\/([^?#]+)/.exec(t);
+    return 'phc-qr-' + (m ? m[1] : (slug($('content').value) || 'link'));
+  }
+  function drawQr() {
+    var t = qrTarget();
+    if (!t || typeof qrcode !== 'function') return;
+    try {
+      $('qrImg').src = qrCanvas(makeQr(t), 336).toDataURL('image/png');
+      $('qrHint').textContent = shortLive
+        ? 'Points to ' + shortLive.replace(/^https?:\/\//, '') + ' (short link: scans fastest).'
+        : 'Points to your trackable link. Create the short link above for a simpler code that scans faster.';
+    } catch (e) {
+      $('qrHint').textContent = 'Could not draw the QR code for this link.';
+    }
+  }
+  function download(name, href) {
+    var a = document.createElement('a'); a.href = href; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+  $('qrPng').onclick = function () {
+    var t = qrTarget(); if (!t) return;
+    download(qrFileBase() + '.png', qrCanvas(makeQr(t), 1200).toDataURL('image/png'));
+  };
+  $('qrSvg').onclick = function () {
+    var t = qrTarget(); if (!t) return;
+    var svg = makeQr(t).createSvgTag({ cellSize: 10, margin: 40, scalable: true });
+    svg = svg.replace(/fill="black"/g, 'fill="#0b1a2e"');
+    if (svg.indexOf('xmlns=') < 0) svg = svg.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+    var url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+    download(qrFileBase() + '.svg', url);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+  };
 
   // Source and Medium are real dropdowns with an "Other" choice that reveals a
   // text box; pick() returns whichever value applies.
@@ -241,6 +312,8 @@
       $('shortCode').value = d.code;
       $('shortUrl').value = d.url.replace(/^https?:\/\//, '');
       $('shortResult').hidden = false;
+      shortLive = d.url;
+      drawQr();
       copyText(d.url, $('shortMsg'));
       loadLinks();
     } finally {
