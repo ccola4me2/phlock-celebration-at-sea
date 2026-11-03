@@ -58,20 +58,30 @@
       </label>
 
       <label class="a-field"><span>Source (where you're posting it)</span>
-        <input class="a-input" id="source" list="sourceList" placeholder="facebook, email, text, flyer…">
-        <datalist id="sourceList">
-          <option value="facebook"></option><option value="instagram"></option>
-          <option value="email"></option><option value="text"></option>
-          <option value="flyer"></option><option value="newsletter"></option>
-        </datalist>
+        <select class="a-input" id="source">
+          <option value="">choose where you're posting it</option>
+          <option value="facebook">Facebook</option>
+          <option value="instagram">Instagram</option>
+          <option value="email">Email</option>
+          <option value="text">Text message</option>
+          <option value="flyer">Flyer or QR code</option>
+          <option value="newsletter">Newsletter</option>
+          <option value="__other">Other (type it in)</option>
+        </select>
+        <input class="a-input" id="sourceOther" placeholder="Type the source" style="margin-top:0.4rem;" hidden>
       </label>
 
       <label class="a-field"><span>Medium (type of link)</span>
-        <input class="a-input" id="medium" list="mediumList" placeholder="social, email, sms, print…">
-        <datalist id="mediumList">
-          <option value="social"></option><option value="email"></option>
-          <option value="sms"></option><option value="print"></option><option value="referral"></option>
-        </datalist>
+        <select class="a-input" id="medium">
+          <option value="">choose the type of link</option>
+          <option value="social">Social post</option>
+          <option value="email">Email</option>
+          <option value="sms">Text (SMS)</option>
+          <option value="print">Print</option>
+          <option value="referral">Referral</option>
+          <option value="__other">Other (type it in)</option>
+        </select>
+        <input class="a-input" id="mediumOther" placeholder="Type the medium" style="margin-top:0.4rem;" hidden>
       </label>
 
       <label class="a-field"><span>Campaign (optional)</span>
@@ -135,7 +145,7 @@
 
   function build() {
     var url = new URL(BASE + $('page').value);
-    var map = { utm_source: $('source').value, utm_medium: $('medium').value, utm_campaign: $('campaign').value, utm_content: $('content').value };
+    var map = { utm_source: pick('source'), utm_medium: pick('medium'), utm_campaign: $('campaign').value, utm_content: $('content').value };
     ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content'].forEach(function (k) {
       var v = slug(map[k]);
       if (v) url.searchParams.set(k, v);
@@ -146,7 +156,26 @@
     if (!codeTouched) $('shortCode').value = suggestCode();
   }
 
-  ['page', 'content', 'source', 'medium', 'campaign'].forEach(function (id) {
+  // Source and Medium are real dropdowns with an "Other" choice that reveals a
+  // text box; pick() returns whichever value applies.
+  function pick(id) {
+    var v = $(id).value;
+    return v === '__other' ? $(id + 'Other').value.trim() : v;
+  }
+  function setPick(id, value) {
+    $(id).value = value;
+    if ($(id).value !== value) { $(id).value = '__other'; $(id + 'Other').value = value; }
+    $(id + 'Other').hidden = $(id).value !== '__other';
+  }
+  ['source', 'medium'].forEach(function (id) {
+    $(id).addEventListener('change', function () {
+      var other = $(id).value === '__other';
+      $(id + 'Other').hidden = !other;
+      if (other) { $(id + 'Other').value = ''; $(id + 'Other').focus(); }
+    });
+  });
+
+  ['page', 'content', 'source', 'medium', 'campaign', 'sourceOther', 'mediumOther'].forEach(function (id) {
     $(id).addEventListener('input', build);
     $(id).addEventListener('change', build);
   });
@@ -160,7 +189,7 @@
   document.querySelectorAll('[data-preset]').forEach(function (b) {
     b.onclick = function () {
       var p = PRESETS[b.getAttribute('data-preset')];
-      $('source').value = p.source; $('medium').value = p.medium; build();
+      setPick('source', p.source); setPick('medium', p.medium); build();
     };
   });
 
@@ -178,7 +207,7 @@
   var codeTouched = false;
   function suggestCode() {
     var parts = [slug($('content').value)];
-    var src = slug($('source').value);
+    var src = slug(pick('source'));
     if (src) parts.push(SRC_ABBR[src] || src);
     var camp = slug($('campaign').value);
     if (camp) parts.push(camp);
@@ -202,7 +231,7 @@
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           code: code, page: $('page').value,
-          utm_source: $('source').value, utm_medium: $('medium').value,
+          utm_source: pick('source'), utm_medium: pick('medium'),
           utm_campaign: $('campaign').value, utm_content: $('content').value,
         }),
       });
