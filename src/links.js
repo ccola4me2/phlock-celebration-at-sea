@@ -72,7 +72,8 @@ export async function handleLinksApi(request, env, url) {
   const path = url.pathname;
 
   if (path === '/api/admin/links' && request.method === 'GET') {
-    const links = await listShortLinks(env.DB);
+    // Cabin referral links are made by the Dive Bar and listed there, not here.
+    const links = (await listShortLinks(env.DB)).filter((l) => l.medium !== 'referral');
     return json({ links: links.map((l) => Object.assign({ url: SITE + PREFIX + l.code }, l)) });
   }
 

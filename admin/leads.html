@@ -156,6 +156,7 @@
   function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
 
   function origin(l) {
+    if (l.referred_by) return 'Referred by ' + l.referred_by;
     if (l.advisor) return 'Advisor: ' + l.advisor;
     if (l.source) return 'Source: ' + l.source;
     if (l.referrer) return l.referrer;

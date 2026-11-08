@@ -296,7 +296,9 @@ export async function listLeads(db, opts = {}) {
   const clause = where.length ? 'WHERE ' + where.join(' AND ') : '';
   const limit = Math.min(opts.limit || 1000, 5000);
   const rows = await db
-    .prepare(`SELECT * FROM leads ${clause} ORDER BY created_at DESC LIMIT ${limit}`)
+    .prepare(`SELECT leads.*,
+        (SELECT COALESCE(c.cabin_number || ' · ', '') || COALESCE(c.name, '') FROM cabins c WHERE leads.campaign = 'ref-' || c.id) AS referred_by
+      FROM leads ${clause} ORDER BY created_at DESC LIMIT ${limit}`)
     .bind(...args)
     .all();
   return rows.results || [];
@@ -489,6 +491,60 @@ export function insertShortLink(db, l) {
 
 export async function listShortLinks(db) {
   const rows = await db.prepare('SELECT * FROM short_links ORDER BY created_at DESC LIMIT 500').all();
+  return rows.results || [];
+}
+
+// ---- cabin referral links (Bring a friend) ----
+// Every booked cabin gets one short link, parrotheadscruise.com/go/<lastname>-<cabin>, whose
+// target tags the visit utm_source=drifters, utm_medium=referral, utm_campaign=ref-<cabin id>.
+// A lead that arrives through it carries that campaign, which is how the board counts it.
+export function referralCampaign(cabinId) {
+  return 'ref-' + String(cabinId || '');
+}
+
+function referralCodeFor(cabin) {
+  const words = String(cabin.name || '').replace(/\(.*?\)/g, ' ').split(/[^A-Za-z]+/).filter((w) => w.length > 1 && !/^(and|tbd|cabin|nd|rd|th|st)$/i.test(w));
+  const last = (words[words.length - 1] || 'drifter').toLowerCase();
+  const no = String(cabin.cabin_number || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
+  return (last + '-' + (no || String(cabin.id || '').slice(0, 4))).slice(0, 40);
+}
+
+export async function getReferralLink(db, cabinId) {
+  return db.prepare("SELECT * FROM short_links WHERE medium = 'referral' AND campaign = ?").bind(referralCampaign(cabinId)).first();
+}
+
+/** The cabin's referral link, made on first sight. The code steps to -2, -3 if another cabin already holds it. */
+export async function ensureReferralLink(db, cabin, now) {
+  const found = await getReferralLink(db, cabin.id);
+  if (found) return found;
+  const campaign = referralCampaign(cabin.id);
+  const target = '/?utm_source=drifters&utm_medium=referral&utm_campaign=' + encodeURIComponent(campaign);
+  const base = referralCodeFor(cabin);
+  for (let n = 1; n <= 9; n++) {
+    const code = n === 1 ? base : `${base.slice(0, 37)}-${n}`;
+    try {
+      await insertShortLink(db, { code, target, page: '/', advisor: '', source: 'drifters', medium: 'referral', campaign, created_by: 'dive-bar', created_at: now || Date.now() });
+      return getShortLink(db, code);
+    } catch {
+      /* code taken: try the next */
+    }
+  }
+  return null;
+}
+
+/** Every cabin with a referral link, with its clicks and the leads that came through it. */
+export async function listReferralBoard(db) {
+  const rows = await db
+    .prepare(
+      `SELECT c.id AS cabin_id, c.name, c.cabin_number, s.code, s.clicks, s.created_at,
+              (SELECT COUNT(*) FROM leads l WHERE l.campaign = s.campaign) AS signups,
+              (SELECT COUNT(*) FROM leads l WHERE l.campaign = s.campaign AND l.status = 'booked') AS booked
+       FROM short_links s JOIN cabins c ON s.campaign = 'ref-' || c.id
+       WHERE s.medium = 'referral'
+       ORDER BY booked DESC, signups DESC, s.clicks DESC, c.name ASC
+       LIMIT 500`
+    )
+    .all();
   return rows.results || [];
 }
 

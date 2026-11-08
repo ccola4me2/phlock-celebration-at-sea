@@ -35,6 +35,8 @@ import {
   listSubscribers,
   deleteSubscriberByToken,
   setPostEmailed,
+  ensureReferralLink,
+  listReferralBoard,
 } from './db.js';
 import { json, parseCookies, randomToken, sha256Hex } from './util.js';
 
@@ -179,6 +181,24 @@ const CSS = `
   .lg-doc .ic { width:38px; height:38px; border-radius:9px; background:var(--navy-900); color:var(--gold); display:flex; align-items:center; justify-content:center; flex:none; }
   .lg-doc b { display:block; color:var(--navy-900); } .lg-doc small { color:var(--ink-soft); }
   .lg-you { display:grid; grid-template-columns:1fr 1fr; gap:1.4rem; margin-top:-1.6rem; position:relative; z-index:2; }
+  .lg-ref { margin-top:1.4rem; }
+  .lg-ref .lg-link { display:flex; gap:.5rem; align-items:center; margin:.7rem 0 .4rem; }
+  .lg-ref .lg-link input { flex:1 1 160px; min-width:0; padding:.7em .8em; font:inherit; font-size:.95rem; border:1px solid var(--cream-dark); border-radius:10px; background:#fff; color:var(--navy-900); }
+  .lg-ref .lg-link .btn { border:none; cursor:pointer; font:inherit; white-space:nowrap; }
+  .lg-share { display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.5rem; }
+  .lg-share a { display:inline-flex; align-items:center; gap:.35rem; padding:.5em .9em; border-radius:999px; border:1px solid var(--navy-900); color:var(--navy-900); text-decoration:none; font-size:.85rem; font-weight:600; }
+  .lg-share a:hover { background:var(--navy-900); color:#fff; }
+  .lg-board { list-style:none; margin:.6rem 0 0; padding:0; }
+  .lg-board li { display:flex; align-items:center; gap:.8rem; padding:.55rem 0; border-top:1px solid var(--cream-dark); font-size:.95rem; }
+  .lg-board li:first-child { border-top:none; }
+  .lg-board .rk { flex:none; width:30px; height:30px; border-radius:50%; background:var(--navy-900); color:var(--gold-light); font-weight:700; display:flex; align-items:center; justify-content:center; font-size:.85rem; }
+  .lg-board li:first-child .rk { background:var(--gold); color:var(--navy-900); }
+  .lg-board .who { flex:1; min-width:0; color:var(--navy-900); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .lg-board .who small { display:block; font-weight:400; color:var(--ink-soft); font-size:.8rem; }
+  .lg-board .n { flex:none; text-align:right; color:var(--ink-soft); font-size:.82rem; line-height:1.2; }
+  .lg-board .n b { display:block; color:var(--navy-900); font-size:1.05rem; }
+  .lg-board .me { background:#fbf6e6; margin:0 -.6rem; padding-left:.6rem; padding-right:.6rem; border-radius:8px; }
+  .lg-prize { margin:.6rem 0 0; padding:.6em .9em; background:#fbf6e6; border-left:3px solid var(--gold); border-radius:6px; font-size:.9rem; color:var(--ink); }
   .lg-you .card { padding:1.4rem 1.5rem; }
   .lg-you .eyebrow { display:block; margin-bottom:.4rem; }
   .lg-cabin-no { font-family:var(--font-display); font-size:2.6rem; line-height:1; color:var(--navy-900); margin:.1rem 0 .3rem; }
@@ -303,6 +323,47 @@ function yourCabinCard(cabin, extra) {
   </div>`;
 }
 
+const SHARE_TEXT = "I'm sailing on the International Parrothead Day Cruise, June 26 to July 3, 2027, on the brand new Margaritaville at Sea Beachcomber. Come with us! Here's everything about it: ";
+
+// Bring a friend: the cabin's own link, the ways to share it, and the board.
+function referralSection(link, board, cabin, settings, extra) {
+  if (settings.referral_on === '0') return '';
+  const mine = cabin ? cabin.id : '';
+  const prize = settings.referral_prize
+    ? `<p class="lg-prize">&#127942; ${esc(settings.referral_prize)}</p>`
+    : '<p class="lg-prize">&#127942; Prize to be announced. Bragging rights are already on the table.</p>';
+  let linkCard;
+  if (link) {
+    const url = `${SITE}/go/${link.code}`;
+    const text = encodeURIComponent(SHARE_TEXT + url);
+    linkCard = `<div class="card">
+    <span class="eyebrow">Bring a friend</span>
+    <h3 style="margin:0 0 .3rem;">Your cabin's link</h3>
+    <p style="margin:0;color:var(--ink-soft);font-size:.95rem;">Every friend who asks about the cruise through this link counts for your cabin. Text it, post it, email it. When they book, you climb the board.</p>
+    <div class="lg-link"><input type="text" value="${esc(url)}" readonly onclick="this.select()" id="refUrl"><button class="btn btn-gold" type="button" id="refCopy">Copy</button></div>
+    <div class="lg-share">
+      <a href="sms:?&amp;body=${text}">&#128172; Text it</a>
+      <a href="https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}" target="_blank" rel="noopener">&#128216; Facebook</a>
+      <a href="mailto:?subject=${encodeURIComponent('Come cruise with us, June 2027')}&amp;body=${text}">&#9993;&#65039; Email</a>
+      <a href="#" id="refShare" hidden>&#128228; Share</a>
+    </div>
+    ${prize}
+  </div>`;
+  } else {
+    linkCard = `<div class="card"><span class="eyebrow">Bring a friend</span><p class="lg-empty" style="text-align:left;padding:.3rem 0 0;">${extra && extra.admin ? 'Admin preview: each cabin sees its own share link here.' : 'Your share link is on its way. Check back in a moment.'}</p>${prize}</div>`;
+  }
+  const active = board.filter((b) => b.signups > 0 || b.clicks > 0);
+  const rows = active.slice(0, 10).map((b, i) => `<li${b.cabin_id === mine ? ' class="me"' : ''}><span class="rk">${i + 1}</span><span class="who">${esc(b.name || 'A Drifter cabin')}<small>${b.cabin_number ? 'Cabin ' + esc(b.cabin_number) : ''}${b.cabin_id === mine ? (b.cabin_number ? ' · ' : '') + 'That\'s you' : ''}</small></span><span class="n"><b>${b.signups}</b>${b.signups === 1 ? 'friend asked' : 'friends asked'}</span><span class="n"><b>${b.booked}</b>booked</span><span class="n"><b>${b.clicks}</b>clicks</span></li>`).join('');
+  const boardCard = `<div class="card">
+    <span class="eyebrow">The board</span>
+    <h3 style="margin:0 0 .3rem;">Who's bringing the PHlock</h3>
+    ${rows ? `<ul class="lg-board">${rows}</ul>` : '<p class="lg-empty" style="text-align:left;padding:.3rem 0 0;">Nobody has shared a link yet. First click goes on the board.</p>'}
+    <p style="margin:.8rem 0 0;color:var(--ink-soft);font-size:.82rem;">A friend counts when they send us their details through your link. A booking counts when their cabin is confirmed.</p>
+  </div>`;
+  return `<section id="friends" style="padding-top:0;"><div class="container"><div class="lg-you lg-ref">${linkCard}${boardCard}</div></div></section>
+<script>(function(){var c=document.getElementById('refCopy'),u=document.getElementById('refUrl');if(c&&u){c.onclick=function(){u.select();var done=function(){c.textContent='Copied';setTimeout(function(){c.textContent='Copy';},1600);};if(navigator.clipboard){navigator.clipboard.writeText(u.value).then(done,function(){document.execCommand('copy');done();});}else{document.execCommand('copy');done();}};}var s=document.getElementById('refShare');if(s&&u&&navigator.share){s.hidden=false;s.onclick=function(e){e.preventDefault();navigator.share({title:'International Parrothead Day Cruise 2027',text:${JSON.stringify(SHARE_TEXT)},url:u.value}).catch(function(){});};}})();</script>`;
+}
+
 function emailCard(subs, extra, sfx, pass) {
   const state = extra ? extra.sub : '';
   const msg = state === 'ok'
@@ -373,6 +434,7 @@ function loungePage(who, settings, posts, events, dates, links, pass, extra) {
 </div></section>
 ${linkNote}
 ${youSection}
+${referralSection(extra && extra.refLink, (extra && extra.board) || [], extra && extra.cabin, settings, extra)}
 <section><div class="container">
   <div class="section-head"><span class="eyebrow">Latest from the PHlock</span><h2>News &amp; Newsletters</h2></div>
   <div class="grid grid-3">${postCards}</div>
@@ -557,7 +619,15 @@ export async function handleLounge(request, env, url) {
     who.cabin_id ? getCabin(env.DB, who.cabin_id) : null,
     who.cabin_id ? listSubscribersForCabin(env.DB, who.cabin_id) : [],
   ]);
-  const extra = { cabin, subs, admin: !!who.admin, sub: clip(url.searchParams.get('sub'), 8) };
+  let refLink = null;
+  let board = [];
+  if (settings.referral_on !== '0') {
+    try {
+      refLink = cabin ? await ensureReferralLink(env.DB, cabin, Date.now()) : null;
+      board = await listReferralBoard(env.DB);
+    } catch { /* the page still renders without the board */ }
+  }
+  const extra = { cabin, subs, admin: !!who.admin, sub: clip(url.searchParams.get('sub'), 8), refLink, board };
   return html(loungePage(who.name, settings, posts.filter((p) => p.published || who.admin), events, dates, links, pass, extra));
 }
 
@@ -671,14 +741,15 @@ export async function handleLoungeAdmin(request, env, url) {
   }
 
   if (path === '/api/admin/lounge' && method === 'GET') {
-    const [settings, posts, events, dates, links] = await Promise.all([
+    const [settings, posts, events, dates, links, referrals] = await Promise.all([
       getLoungeSettings(env.DB),
       listLounge(env.DB, 'posts'),
       listLounge(env.DB, 'events'),
       listLounge(env.DB, 'dates'),
       listLounge(env.DB, 'links'),
+      listReferralBoard(env.DB).catch(() => []),
     ]);
-    return json({ settings, posts, events, dates, links });
+    return json({ settings, posts, events, dates, links, referrals });
   }
 
   if (method !== 'POST') return json({ error: 'not_found' }, 404);
@@ -693,6 +764,8 @@ export async function handleLoungeAdmin(request, env, url) {
     if (body.enabled !== undefined) await setLoungeSetting(env.DB, 'enabled', body.enabled ? '1' : '0');
     if (body.pinned_title !== undefined) await setLoungeSetting(env.DB, 'pinned_title', clip(body.pinned_title, 160));
     if (body.pinned_body !== undefined) await setLoungeSetting(env.DB, 'pinned_body', clip(body.pinned_body, 2000));
+    if (body.referral_on !== undefined) await setLoungeSetting(env.DB, 'referral_on', body.referral_on ? '1' : '0');
+    if (body.referral_prize !== undefined) await setLoungeSetting(env.DB, 'referral_prize', clip(body.referral_prize, 300));
     return json({ ok: true, settings: await getLoungeSettings(env.DB) });
   }
 

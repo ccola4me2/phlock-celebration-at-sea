@@ -33,10 +33,12 @@
     <div class="a-grid a-grid-2">
       <label class="a-field" style="grid-column:1/-1;"><span>Pinned notice title (shown at the top of the Dive Bar)</span><input class="a-input" id="pinTitle" placeholder="e.g. Host hotel and shuttle details are out"></label>
       <label class="a-field" style="grid-column:1/-1;"><span>Pinned notice text</span><textarea class="a-input" id="pinBody" rows="3" placeholder="A couple of sentences. Leave both blank to show a plain welcome."></textarea></label>
+      <label class="a-field" style="grid-column:1/-1;"><span>Bring-a-friend prize (shown under every cabin's share link)</span><input class="a-input" id="refPrize" placeholder="e.g. The cabin with the most booked friends at final payment wins a $100 bar tab"></label>
     </div>
     <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;">
-      <button class="a-btn" id="saveSettings" type="button">Save notice</button>
+      <button class="a-btn" id="saveSettings" type="button">Save</button>
       <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.9rem;"><input type="checkbox" id="enabled" checked> Dive Bar is open to guests (uncheck to close it while you set things up)</label>
+      <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.9rem;"><input type="checkbox" id="referralOn" checked> Bring-a-friend links and board are on</label>
       <span class="a-msg" id="settingsMsg" hidden></span>
     </div>
   </div>
@@ -60,6 +62,15 @@
     <p class="a-hint">Guests who asked for updates on the Dive Bar. "Email to subscribers" on a post sends it to everyone here, from noreply@parrotheadscruise.com with replies going to Lori, Dawn and Brent.</p>
     <table class="a-table"><thead><tr><th>Email</th><th>Cabin</th><th>Subscribed</th></tr></thead><tbody id="tb-subs"></tbody></table>
     <p class="a-hint" id="empty-subs" hidden>Nobody has subscribed yet. Guests see the sign-up box on the Dive Bar.</p>
+  </div>
+
+  <div class="a-card" style="margin-bottom:1.3rem;">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
+      <h2 style="margin:0;font-size:1.1rem;">Bring a friend <span id="refCount" style="font-size:0.85rem;color:var(--a-soft);font-weight:400;"></span></h2>
+    </div>
+    <p class="a-hint">Every cabin gets its own share link the first time a guest opens the Dive Bar. A lead that comes in through it is tagged to that cabin ("Referred by" in Leads), and the board on the Dive Bar ranks cabins by friends who asked, friends who booked, then clicks. Mark the friend's lead Booked and the cabin gets the credit.</p>
+    <table class="a-table"><thead><tr><th>Cabin</th><th>Link</th><th class="num">Clicks</th><th class="num">Asked</th><th class="num">Booked</th><th></th></tr></thead><tbody id="tb-refs"></tbody></table>
+    <p class="a-hint" id="empty-refs" hidden>No share links yet. They appear here as guests open the Dive Bar.</p>
   </div>
 
   <div class="a-card" style="margin-bottom:1.3rem;" data-type="events">
@@ -189,6 +200,22 @@
     }).join('');
   }
 
+  function renderRefs() {
+    var refs = data.referrals || [];
+    $('refCount').textContent = refs.length ? '· ' + refs.length + ' cabin' + (refs.length === 1 ? '' : 's') : '';
+    $('empty-refs').hidden = refs.length > 0;
+    $('tb-refs').innerHTML = refs.map(function (r) {
+      var url = 'https://parrotheadscruise.com/go/' + r.code;
+      return '<tr><td>' + esc((r.cabin_number ? r.cabin_number + ' · ' : '') + (r.name || '')) + '</td>' +
+        '<td style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.82rem;white-space:nowrap;">parrotheadscruise.com/go/' + esc(r.code) + '</td>' +
+        '<td class="num">' + (r.clicks || 0) + '</td><td class="num">' + (r.signups || 0) + '</td><td class="num">' + (r.booked || 0) + '</td>' +
+        '<td style="white-space:nowrap;"><button class="a-btn a-btn-ghost" data-refcopy="' + esc(url) + '" style="padding:0.35em 0.7em;">Copy</button></td></tr>';
+    }).join('');
+    document.querySelectorAll('[data-refcopy]').forEach(function (b) {
+      b.onclick = function () { navigator.clipboard.writeText(b.getAttribute('data-refcopy')).catch(function () {}); b.textContent = 'Copied ✓'; setTimeout(function () { b.textContent = 'Copy'; }, 1500); };
+    });
+  }
+
   async function load() {
     try {
       var res = await fetch('/api/admin/lounge');
@@ -196,6 +223,9 @@
       data = await res.json();
       try { data.subscribers = (await (await fetch('/api/admin/lounge/subscribers')).json()).subscribers || []; } catch (e) { data.subscribers = []; }
       renderSubs();
+      renderRefs();
+      $('refPrize').value = data.settings.referral_prize || '';
+      $('referralOn').checked = data.settings.referral_on !== '0';
       $('pinTitle').value = data.settings.pinned_title || '';
       $('pinBody').value = data.settings.pinned_body || '';
       $('enabled').checked = data.settings.enabled !== '0';
@@ -208,11 +238,12 @@
   $('saveSettings').onclick = async function () {
     var m = $('settingsMsg');
     var res = await fetch('/api/admin/lounge/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pinned_title: $('pinTitle').value, pinned_body: $('pinBody').value, enabled: $('enabled').checked }) });
+      body: JSON.stringify({ pinned_title: $('pinTitle').value, pinned_body: $('pinBody').value, enabled: $('enabled').checked, referral_on: $('referralOn').checked, referral_prize: $('refPrize').value }) });
     m.hidden = false; m.className = 'a-msg ' + (res.ok ? 'ok' : 'err'); m.textContent = res.ok ? 'Saved ✓' : 'Could not save.';
     setTimeout(function () { m.hidden = true; }, 2000);
   };
   $('enabled').onchange = function () { $('saveSettings').click(); };
+  $('referralOn').onchange = function () { $('saveSettings').click(); };
 
   // ---- editor ----
   function openEdit(type, item) {

@@ -3,7 +3,7 @@
 // Admin: GET /api/admin/leads (list/CSV), POST /api/admin/leads/update.
 
 import { requireAdmin } from './auth.js';
-import { ensureSchema, insertLead, getLead, listLeads, updateLead, deleteLead, insertConversion } from './db.js';
+import { ensureSchema, insertLead, getLead, listLeads, updateLead, deleteLead, insertConversion, getCabin } from './db.js';
 import { syncDripForStatus } from './drip.js';
 import { json, parseCookies } from './util.js';
 
@@ -112,6 +112,14 @@ async function sendLeadEmail(env, lead) {
       : lead.referrer
         ? `Referrer: ${lead.referrer}`
         : 'Direct';
+  // A lead that came through a Drifter's Bring-a-friend link: name the cabin rather than show ref-<id>.
+  let referredBy = '';
+  if (/^ref-/.test(lead.campaign || '') && env.DB) {
+    try {
+      const c = await getCabin(env.DB, lead.campaign.slice(4));
+      if (c) referredBy = `${c.cabin_number ? c.cabin_number + ' · ' : ''}${c.name || ''} (Dive Bar link)`;
+    } catch { /* the alert still goes */ }
+  }
   const esc = (s) => String(s || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const row = (k, v) => (v ? `<tr><td style="padding:4px 10px;color:#667;">${k}</td><td style="padding:4px 10px;"><b>${esc(v)}</b></td></tr>` : '');
   const html = `
@@ -126,7 +134,7 @@ async function sendLeadEmail(env, lead) {
         ${row('Heard about us', lead.heard)}
         ${row('Message', lead.message)}
         ${row('Came from', origin)}
-        ${row('Campaign', lead.campaign)}
+        ${row(referredBy ? 'Referred by' : 'Campaign', referredBy || lead.campaign)}
       </table>
       <p style="margin-top:16px;"><a href="https://parrotheadscruise.com/admin/leads" style="background:#c9a545;color:#081627;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:bold;">Open in Admin</a></p>
     </div>`;
