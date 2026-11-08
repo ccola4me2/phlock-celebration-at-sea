@@ -182,8 +182,9 @@ const CSS = `
   .lg-doc b { display:block; color:var(--navy-900); } .lg-doc small { color:var(--ink-soft); }
   .lg-you { display:grid; grid-template-columns:1fr 1fr; gap:1.4rem; margin-top:-1.6rem; position:relative; z-index:2; }
   .lg-ref { margin-top:1.4rem; }
+  .lg-you > .card { min-width:0; }
   .lg-ref .lg-link { display:flex; gap:.5rem; align-items:center; margin:.7rem 0 .4rem; }
-  .lg-ref .lg-link input { flex:1 1 160px; min-width:0; padding:.7em .8em; font:inherit; font-size:.95rem; border:1px solid var(--cream-dark); border-radius:10px; background:#fff; color:var(--navy-900); }
+  .lg-ref .lg-link input { flex:1 1 160px; width:100%; min-width:0; padding:.7em .8em; font:inherit; font-size:.95rem; border:1px solid var(--cream-dark); border-radius:10px; background:#fff; color:var(--navy-900); }
   .lg-ref .lg-link .btn { border:none; cursor:pointer; font:inherit; white-space:nowrap; }
   .lg-share { display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.5rem; }
   .lg-share a { display:inline-flex; align-items:center; gap:.35rem; padding:.5em .9em; border-radius:999px; border:1px solid var(--navy-900); color:var(--navy-900); text-decoration:none; font-size:.85rem; font-weight:600; }
@@ -198,6 +199,14 @@ const CSS = `
   .lg-board .n { flex:none; text-align:right; color:var(--ink-soft); font-size:.82rem; line-height:1.2; }
   .lg-board .n b { display:block; color:var(--navy-900); font-size:1.05rem; }
   .lg-board .me { background:#fbf6e6; margin:0 -.6rem; padding-left:.6rem; padding-right:.6rem; border-radius:8px; }
+  @media (max-width: 760px) {
+    .lg-board li { flex-wrap:wrap; row-gap:.15rem; }
+    .lg-board .who { flex:1 1 calc(100% - 42px); white-space:normal; }
+    .lg-board .n { margin-left:42px; text-align:left; display:flex; gap:.3rem; align-items:baseline; }
+    .lg-board .n ~ .n { margin-left:0; }
+    .lg-board .n ~ .n::before { content:"\\00b7"; margin-right:.3rem; }
+    .lg-board .n b { display:inline; font-size:1rem; }
+  }
   .lg-prize { margin:.6rem 0 0; padding:.6em .9em; background:#fbf6e6; border-left:3px solid var(--gold); border-radius:6px; font-size:.9rem; color:var(--ink); }
   .lg-you .card { padding:1.4rem 1.5rem; }
   .lg-you .eyebrow { display:block; margin-bottom:.4rem; }
@@ -206,7 +215,7 @@ const CSS = `
   .lg-kv { margin:0; padding:0; list-style:none; font-size:.95rem; color:var(--ink); }
   .lg-kv li { display:flex; gap:.6rem; padding:.3rem 0; border-top:1px solid var(--cream-dark); }
   .lg-kv li:first-child { border-top:none; }
-  .lg-kv li span:first-child { flex:none; width:110px; color:var(--ink-soft); font-size:.78rem; letter-spacing:.08em; text-transform:uppercase; padding-top:.15em; }
+  .lg-kv li > span:first-child { flex:none; width:110px; color:var(--ink-soft); font-size:.78rem; letter-spacing:.08em; text-transform:uppercase; padding-top:.15em; }
   .lg-badge { display:inline-block; white-space:nowrap; background:var(--navy-900); color:var(--gold-light); font-size:.7rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; padding:.25em .7em; border-radius:999px; }
   .lg-sub form { display:flex; gap:.6rem; flex-wrap:wrap; margin-top:.6rem; }
   .lg-sub input[type=email] { flex:1 1 200px; padding:.75em .9em; font:inherit; border:1px solid var(--cream-dark); border-radius:10px; background:#fff; }
