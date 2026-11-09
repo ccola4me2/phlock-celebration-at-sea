@@ -438,7 +438,6 @@ function pirateSection(crew, settings, extra, pass) {
       <p id="pnDuty"></p>
       <div class="share">
         <button type="button" id="pnCopy">&#128203; Copy</button>
-        <a id="pnText" href="#">&#128172; Text it</a>
         <a id="pnFb" href="#" target="_blank" rel="noopener">&#128216; Facebook</a>
         <a id="pnShare" href="#" hidden>&#128228; Share</a>
       </div>
@@ -463,7 +462,7 @@ function esc(s){var d=document.createElement('div');d.textContent=s;return d.inn
 function renderCrew(list){var ul=$('pnCrew');ul.innerHTML=list.map(function(c){var d=(c.duty||'').replace(/^Duty aboard: /,'').replace(/\\. Weapon.*$/,'');return '<li><span class="rk">&#9760;</span><span class="who">'+esc(c.pirate_name)+'<small>'+(c.cabin_number?'Cabin '+esc(c.cabin_number):'')+(d?(c.cabin_number?' · ':'')+esc(d):'')+'</small></span></li>';}).join('');$('pnEmpty').hidden=list.length>0;}
 function run(){var p=gen($('pn').value);if(!p){$('pn').focus();return;}cur=p;$('pnOut').textContent=p.name;$('pnDuty').textContent=p.duty;$('pnRes').hidden=false;$('pnAgain').hidden=false;
 var msg='My pirate name for the International Parrothead Day Cruise is '+p.name+'. Get yours in the Drifters Dive Bar: https://parrotheadscruise.com/drifters';var t=encodeURIComponent(msg);
-$('pnText').href='sms:?&body='+t;$('pnFb').href='https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent('https://parrotheadscruise.com/drifters')+'&quote='+t;
+$('pnFb').href='https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent('https://parrotheadscruise.com/drifters')+'&quote='+t;
 var sh=$('pnShare');if(navigator.share){sh.hidden=false;sh.onclick=function(e){e.preventDefault();navigator.share({text:msg}).catch(function(){});};}
 $('pnCopy').onclick=function(){var done=function(){$('pnCopy').textContent='Copied';setTimeout(function(){$('pnCopy').innerHTML='&#128203; Copy';},1500);};if(navigator.clipboard){navigator.clipboard.writeText(msg).then(done,done);}else{done();}};
 if(SAVE){fetch('/drifters/pirate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:p.first,s:PASS})}).then(function(r){return r.json();}).then(function(d){if(d&&d.crew)renderCrew(d.crew);}).catch(function(){});}}
