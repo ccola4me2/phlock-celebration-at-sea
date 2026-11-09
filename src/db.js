@@ -195,6 +195,7 @@ export async function ensureSchema(db) {
     "ALTER TABLE cabins ADD COLUMN status TEXT NOT NULL DEFAULT 'booked'",
     // Dive Bar posts remember when they were emailed to subscribers.
     'ALTER TABLE lounge_posts ADD COLUMN emailed_at INTEGER',
+    'ALTER TABLE lounge_posts ADD COLUMN image_url TEXT',
   ];
   for (const sql of migrations) {
     try {
@@ -603,7 +604,7 @@ export function bumpShortLink(db, code, ts) {
 
 // ---- Drifters Lounge content (one generic CRUD over four small tables) ----
 export const LOUNGE_TYPES = {
-  posts: { table: 'lounge_posts', cols: ['title', 'body', 'post_date', 'published'], order: 'post_date DESC, created_at DESC' },
+  posts: { table: 'lounge_posts', cols: ['title', 'body', 'post_date', 'published', 'image_url'], order: 'post_date DESC, created_at DESC' },
   events: { table: 'lounge_events', cols: ['day', 'start_time', 'title', 'detail', 'day_label'], order: 'day ASC, start_time ASC, created_at ASC' },
   dates: { table: 'lounge_dates', cols: ['due_date', 'title', 'detail'], order: 'due_date ASC, created_at ASC' },
   links: { table: 'lounge_links', cols: ['title', 'note', 'url', 'sort_order'], order: 'sort_order ASC, created_at ASC' },

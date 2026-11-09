@@ -224,7 +224,7 @@ function renderHtml(env, lead, stage) {
   <tr><td style="background:#f5efe2;padding:18px 32px;font-size:12px;line-height:1.6;color:#55606c;text-align:center;">
     You're receiving this because you asked about the International Parrothead Day Cruise 2027 at parrotheadscruise.com.
     Don't want these reminders? <a href="${unsub}" style="color:#123152;">Unsubscribe</a> and we'll stop right away.<br>
-    Prestige Travel Vacations LLC &amp; Turner Travel${postal ? ' &middot; ' + esc(postal) : ''}
+    Prestige Travel Vacations LLC, Turner Travel &amp; Cruises Tours &amp; Travel${postal ? ' &middot; ' + esc(postal) : ''}
   </td></tr>
 </table>
 </td></tr></table>
@@ -252,7 +252,7 @@ function renderText(env, lead, stage) {
     `Unsubscribe: ${unsubUrl(lead)}`
   );
   const postal = clip(env.DRIP_POSTAL_ADDRESS, 200);
-  lines.push(`Prestige Travel Vacations LLC & Turner Travel${postal ? ' | ' + postal : ''}`);
+  lines.push(`Prestige Travel Vacations LLC, Turner Travel & Cruises Tours & Travel${postal ? ' | ' + postal : ''}`);
   return lines.join('\n');
 }
 

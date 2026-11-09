@@ -165,6 +165,8 @@ const CSS = `
   .lg-post h3 { margin:.35rem 0 .4rem; font-size:1.1rem; }
   .lg-post p { color:var(--ink-soft); font-size:.95rem; margin:0 0 .9rem; }
   .lg-post a { margin-top:auto; font-weight:600; color:var(--navy-700); }
+  .lg-post .pic { display:block; width:100%; height:150px; object-fit:contain; object-position:left center; margin:0 0 .8rem; border-radius:10px; background:#fff; padding:.5rem; box-sizing:border-box; }
+  .lg-article .hero-pic { display:block; max-width:420px; width:100%; height:auto; margin:0 0 1.4rem; }
   .lg-day { display:grid; grid-template-columns:180px 1fr; gap:1.2rem; padding:1.1rem 0; border-bottom:1px solid rgba(255,255,255,.12); }
   .lg-day:last-child { border-bottom:none; }
   .lg-day .when { font-family:var(--font-display); color:var(--gold-light); font-size:.95rem; line-height:1.3; }
@@ -284,7 +286,7 @@ function foot(who, pass) {
   const hidden = pass ? `<input type="hidden" name="s" value="${esc(pass)}">` : '';
   return `</main>
 <footer class="site-footer"><div class="container"><div class="footer-bottom lg-foot">
-  <span>&copy; 2026&ndash;2027 Prestige Travel Vacations LLC &amp; Turner Travel. The Drifters Dive Bar is private to booked guests.</span>
+  <span>&copy; 2026&ndash;2027 Prestige Travel Vacations LLC, Turner Travel &amp; Cruises Tours &amp; Travel. The Drifters Dive Bar is private to booked guests.</span>
   ${who ? `<span>Signed in as ${esc(who)} &middot; <form method="post" action="/drifters/logout" style="display:inline">${hidden}<button type="submit">Sign out</button></form></span>` : ''}
 </div></div></footer>
 <script src="/js/main.js"></script></body></html>`;
@@ -505,7 +507,7 @@ function loungePage(who, settings, posts, events, dates, links, pass, extra) {
     : `<div class="lg-pinned"><span class="tag">Welcome</span><h3>You're in.</h3><p>News, the schedule and every deadline for our sailing live here. Check back often.</p></div>`;
 
   const postCards = posts.length
-    ? posts.map((p) => `<div class="card lg-post"><span class="date">${fmtDate(p.post_date)}</span><h3>${esc(p.title)}</h3><p>${esc(excerpt(p.body))}</p><a href="/drifters/post/${esc(p.id)}${sfx}">Read more &rarr;</a></div>`).join('')
+    ? posts.map((p) => `<div class="card lg-post">${p.image_url ? `<img class="pic" src="${esc(p.image_url)}" alt="" loading="lazy">` : ''}<span class="date">${fmtDate(p.post_date)}</span><h3>${esc(p.title)}</h3><p>${esc(excerpt(p.body))}</p><a href="/drifters/post/${esc(p.id)}${sfx}">Read more &rarr;</a></div>`).join('')
     : '<p class="lg-empty">No news yet. Watch this space.</p>';
 
   const byDay = new Map();
@@ -567,6 +569,7 @@ function postPage(who, post, pass) {
   <p><a href="/drifters${sfx}">&larr; Back to the Dive Bar</a></p>
   <span class="date">${fmtDate(post.post_date)}</span>
   <h1 style="margin:.3rem 0 1.2rem;">${esc(post.title)}</h1>
+  ${post.image_url ? `<img class="hero-pic" src="${esc(post.image_url)}" alt="">` : ''}
   <div class="body">${richText(post.body) || '<p class="lg-empty">This post has no text yet.</p>'}</div>
 </div></section>` + foot(who, pass);
 }
@@ -770,6 +773,7 @@ function postEmailHtml(env, post, unsub) {
   <tr><td style="padding:30px 32px 8px;">
     <div style="font-size:12px;letter-spacing:2px;color:#c9a545;text-transform:uppercase;font-weight:bold;">${esc(fmtDate(post.post_date))}</div>
     <h1 style="margin:6px 0 16px;font-size:22px;line-height:1.3;color:#081627;">${esc(post.title)}</h1>
+    ${post.image_url ? `<img src="${esc(/^https?:/.test(post.image_url) ? post.image_url : SITE + post.image_url)}" alt="" style="display:block;max-width:360px;width:100%;height:auto;margin:0 0 16px;">` : ''}
     <div style="font-size:16px;line-height:1.6;color:#22303d;">${richText(post.body).replace(/<p>/g, '<p style="margin:0 0 14px;">')}</div>
   </td></tr>
   <tr><td style="padding:4px 32px 30px;" align="center">
@@ -777,7 +781,7 @@ function postEmailHtml(env, post, unsub) {
   </td></tr>
   <tr><td style="background:#f5efe2;padding:16px 32px;font-size:12px;line-height:1.6;color:#55606c;text-align:center;">
     You asked for Dive Bar updates on parrotheadscruise.com. <a href="${unsub}" style="color:#123152;">Unsubscribe</a> any time.<br>
-    Prestige Travel Vacations LLC &amp; Turner Travel${postal ? ' &middot; ' + esc(postal) : ''}
+    Prestige Travel Vacations LLC, Turner Travel &amp; Cruises Tours &amp; Travel${postal ? ' &middot; ' + esc(postal) : ''}
   </td></tr>
 </table></td></tr></table></body></html>`;
 }
@@ -817,6 +821,10 @@ function cleanRow(type, b) {
     if (b.body !== undefined) row.body = clip(b.body, 20000);
     if (b.post_date !== undefined) row.post_date = parseYmd(b.post_date) ? clip(b.post_date, 10) : '';
     if (b.published !== undefined) row.published = b.published ? 1 : 0;
+    if (b.image_url !== undefined) {
+      const u = clip(b.image_url, 500);
+      row.image_url = /^(\/[^\s]*|https:\/\/[^\s]+)$/.test(u) ? u : '';
+    }
   } else if (type === 'events') {
     if (b.day !== undefined) row.day = parseYmd(b.day) ? clip(b.day, 10) : '';
     if (b.start_time !== undefined) row.start_time = /^\d{1,2}:\d{2}$/.test(String(b.start_time || '').trim()) ? clip(b.start_time, 5).padStart(5, '0') : '';

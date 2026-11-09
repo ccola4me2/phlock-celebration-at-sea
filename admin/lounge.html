@@ -135,6 +135,7 @@
       { k: 'title', l: 'Title', t: 'text', full: true },
       { k: 'post_date', l: 'Date', t: 'date' },
       { k: 'published', l: 'Published', t: 'checkbox', def: true },
+      { k: 'image_url', l: 'Picture (optional): a site image like /assets/img/cfc-logo-transparent.png, or a full https link', t: 'text', full: true },
       { k: 'body', l: 'Text (blank line between paragraphs; links become clickable)', t: 'textarea', full: true, rows: 10 } ],
       row: function (p) { return [fmtDate(p.post_date), '<strong>' + esc(p.title) + '</strong>', p.published ? 'Published' : '<span style="color:var(--a-soft);">Draft</span>', p.published ? ((p.emailed_at ? '<span style="color:var(--a-soft);font-size:0.8rem;">Emailed ' + new Date(p.emailed_at).toLocaleDateString() + '</span><br>' : '') + '<button class="a-btn a-btn-ghost" data-send="' + p.id + '" style="padding:0.3em 0.6em;font-size:0.8rem;">' + (p.emailed_at ? 'Send again' : 'Email to subscribers') + '</button>') : '<span style="color:var(--a-soft);font-size:0.8rem;">Publish first</span>']; } },
     events: { label: 'event', fields: [
