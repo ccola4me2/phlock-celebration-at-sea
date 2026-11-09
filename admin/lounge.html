@@ -39,6 +39,7 @@
       <button class="a-btn" id="saveSettings" type="button">Save</button>
       <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.9rem;"><input type="checkbox" id="enabled" checked> Dive Bar is open to guests (uncheck to close it while you set things up)</label>
       <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.9rem;"><input type="checkbox" id="referralOn" checked> Bring-a-friend links and board are on</label>
+      <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.9rem;"><input type="checkbox" id="pirateOn" checked> Pirate name generator is on <span id="pirateCount" style="color:var(--a-soft);"></span></label>
       <span class="a-msg" id="settingsMsg" hidden></span>
     </div>
   </div>
@@ -226,6 +227,8 @@
       renderRefs();
       $('refPrize').value = data.settings.referral_prize || '';
       $('referralOn').checked = data.settings.referral_on !== '0';
+      $('pirateOn').checked = data.settings.pirate_on !== '0';
+      $('pirateCount').textContent = data.pirates ? '(' + data.pirates + ' christened)' : '';
       $('pinTitle').value = data.settings.pinned_title || '';
       $('pinBody').value = data.settings.pinned_body || '';
       $('enabled').checked = data.settings.enabled !== '0';
@@ -238,12 +241,13 @@
   $('saveSettings').onclick = async function () {
     var m = $('settingsMsg');
     var res = await fetch('/api/admin/lounge/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pinned_title: $('pinTitle').value, pinned_body: $('pinBody').value, enabled: $('enabled').checked, referral_on: $('referralOn').checked, referral_prize: $('refPrize').value }) });
+      body: JSON.stringify({ pinned_title: $('pinTitle').value, pinned_body: $('pinBody').value, enabled: $('enabled').checked, referral_on: $('referralOn').checked, referral_prize: $('refPrize').value, pirate_on: $('pirateOn').checked }) });
     m.hidden = false; m.className = 'a-msg ' + (res.ok ? 'ok' : 'err'); m.textContent = res.ok ? 'Saved ✓' : 'Could not save.';
     setTimeout(function () { m.hidden = true; }, 2000);
   };
   $('enabled').onchange = function () { $('saveSettings').click(); };
   $('referralOn').onchange = function () { $('saveSettings').click(); };
+  $('pirateOn').onchange = function () { $('saveSettings').click(); };
 
   // ---- editor ----
   function openEdit(type, item) {

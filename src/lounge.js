@@ -37,6 +37,9 @@ import {
   setPostEmailed,
   ensureReferralLink,
   listReferralBoard,
+  upsertPirate,
+  listPirates,
+  countPirates,
 } from './db.js';
 import { json, parseCookies, randomToken, sha256Hex } from './util.js';
 
@@ -207,6 +210,21 @@ const CSS = `
     .lg-board .n ~ .n::before { content:"\\00b7"; margin-right:.3rem; }
     .lg-board .n b { display:inline; font-size:1rem; }
   }
+  .lg-pirate .row { display:flex; gap:.6rem; flex-wrap:wrap; margin-top:.7rem; }
+  .lg-pirate input { flex:1 1 180px; min-width:0; padding:.75em .9em; font:inherit; border:1px solid var(--cream-dark); border-radius:10px; background:#fff; }
+  .lg-pirate .btn { border:none; cursor:pointer; font:inherit; }
+  .lg-pirate .result { margin-top:1rem; padding:1.1rem 1.2rem; background:var(--navy-900); color:#fff; border-radius:14px; position:relative; overflow:hidden; }
+  .lg-pirate .result::after { content:"\\2620"; position:absolute; right:-6px; bottom:-26px; font-size:7rem; opacity:.08; }
+  .lg-pirate .result small { display:block; font-size:.72rem; letter-spacing:.14em; text-transform:uppercase; color:var(--gold-light); margin-bottom:.3rem; }
+  .lg-pirate .result b { font-family:var(--font-display); font-size:1.6rem; line-height:1.15; display:block; color:#fff; }
+  .lg-pirate .result p { margin:.5rem 0 0; color:rgba(255,255,255,.8); font-size:.92rem; position:relative; }
+  .lg-pirate .share { display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.8rem; position:relative; }
+  .lg-pirate .share a, .lg-pirate .share button { display:inline-flex; align-items:center; gap:.35rem; padding:.5em .9em; border-radius:999px; border:1px solid var(--gold); color:var(--gold-light); background:transparent; text-decoration:none; font:inherit; font-size:.85rem; font-weight:600; cursor:pointer; }
+  .lg-pirate .share a:hover, .lg-pirate .share button:hover { background:var(--gold); color:var(--navy-900); }
+  .lg-pirate .again { margin:.6rem 0 0; font-size:.85rem; color:var(--ink-soft); }
+  .lg-pirate .again a { color:var(--navy-900); }
+  .lg-crew .who { white-space:normal; }
+  .lg-crew .who small { color:var(--ink-soft); }
   .lg-prize { margin:.6rem 0 0; padding:.6em .9em; background:#fbf6e6; border-left:3px solid var(--gold); border-radius:6px; font-size:.9rem; color:var(--ink); }
   .lg-you .card { padding:1.4rem 1.5rem; }
   .lg-you .eyebrow { display:block; margin-bottom:.4rem; }
@@ -373,6 +391,86 @@ function referralSection(link, board, cabin, settings, extra) {
 <script>(function(){var c=document.getElementById('refCopy'),u=document.getElementById('refUrl');if(c&&u){c.onclick=function(){u.select();var done=function(){c.textContent='Copied';setTimeout(function(){c.textContent='Copy';},1600);};if(navigator.clipboard){navigator.clipboard.writeText(u.value).then(done,function(){document.execCommand('copy');done();});}else{document.execCommand('copy');done();}};}var s=document.getElementById('refShare');if(s&&u&&navigator.share){s.hidden=false;s.onclick=function(e){e.preventDefault();navigator.share({title:'International Parrothead Day Cruise 2027',text:${JSON.stringify(SHARE_TEXT)},url:u.value}).catch(function(){});};}})();</script>`;
 }
 
+// ---- Parrots & Pirates: the name generator ----
+// Deterministic: the same first name always gets the same pirate, so nobody can re-roll
+// their way out of "Deckhand". The same lists and the same hash run in the browser for an
+// instant result and here when the christening is saved, so the two never disagree.
+const PIRATE = {
+  rank: ['Captain', 'Commodore', 'Admiral', 'First Mate', 'Bosun', 'Quartermaster', "Cap'n", 'Rear Admiral', 'Navigator', 'Lookout', 'Skipper', 'Harbormaster'],
+  adj: ['Salty', 'Barefoot', 'Sunburnt', 'Rum-Soaked', 'Flip-Flop', 'Landshark', 'Coconut', 'Tiki', 'Hammock-Bound', 'Sandbar', 'One-Flop', "Lime-Squeezin'", "Blender-Breakin'", 'Latitude-Lost', 'Boat-Drink', 'Cheeseburger', 'Fins-Up', 'Volcano', 'Last-Mango', 'Pencil-Thin', 'Banana-Wind', 'Jolly', 'Fruitcake', 'Parakeet', 'Grapefruit', 'Pink-Crustacean', 'Havana', 'Ragtop', 'Lone-Palm', 'Conch-Blowin\''],
+  tail: ['the Unanchored', 'of the Lost Shaker', 'Scourge of the Lido Deck', 'Terror of Duval Street', 'of Key West', 'the Latitude-Challenged', 'Keeper of the Last Mango', 'the Mostly Harmless', 'of the Flip Flop Bar', 'who Fears No Blender', 'Protector of the Pool Deck', 'the Perpetually Boat-Drunk', 'of Seven Mile Beach', 'Admiral of the Lazy River', 'the Volcano-Tested', 'of One Particular Harbour', 'who Grew Older but Not Up', 'of the Coconut Telegraph', 'Defender of the Cheeseburger', 'Mayor of Margaritaville', 'Ruler of the Tiki Bar', 'Bane of Hurricane Season', 'Keeper of the Tin Cup Chalice', 'who Never Found the Salt', 'Lookout of the Hemisphere Dancer', 'of the Pascagoula Run', 'Sultan of Sunsets', 'the Barefoot Buccaneer', 'Warden of the Towel Chairs', 'who Claims Every Hammock'],
+  duty: ['Keeper of the Blender', 'Officer in Charge of Sunscreen', 'Chief Hammock Inspector', 'Head of the Conga Line', 'Minister of Boat Drinks', 'Lookout for Land Sharks', 'Quartermaster of Salt Shakers', 'Navigator, cheerfully lost', 'Judge of the Cannonball Contest', 'Sergeant at Arms of the Lazy River', 'Master of the Cheeseburger Grill', 'Curator of Hawaiian Shirts', 'Commander of the Sailaway Playlist', 'Keeper of the Sunset Toast', 'Ambassador to Key West', 'Admiral of the Fins Up Salute', 'Inspector of Flip-Flop Tan Lines', 'Chaplain of 5 O\'Clock Somewhere', 'Treasurer of the Swear Jar', 'Captain of the Late Seating'],
+  weapon: ['a salt shaker', 'a blender on high', 'a single flip-flop', 'a frozen concoction', 'a conch shell', 'a ukulele, badly tuned', 'a koozie', 'sunscreen, SPF 50', 'a parrot on the shoulder', 'a boat drink in each hand', 'a pool noodle', 'a paper umbrella', 'a tiki torch', 'a beach towel claimed at 6 AM', 'a shaker of salt, finally found', 'a cheeseburger, medium rare'],
+};
+function pirateHash(s) {
+  let x = 0;
+  for (let i = 0; i < s.length; i++) x = (Math.imul(x, 31) + s.charCodeAt(i)) >>> 0;
+  return x;
+}
+export function pirateNameFor(raw) {
+  const n = String(raw || '').trim().replace(/\s+/g, ' ');
+  if (!n) return null;
+  let first = n.split(' ')[0].replace(/[^A-Za-z'\-]/g, '').slice(0, 24);
+  if (!first) return null;
+  first = first.charAt(0).toUpperCase() + first.slice(1);
+  const k = first.toLowerCase();
+  const pick = (list, salt) => list[pirateHash(k + salt) % list.length];
+  return {
+    first,
+    name: `${pick(PIRATE.rank, '')} ${pick(PIRATE.adj, 'x')} ${first} ${pick(PIRATE.tail, 'y')}`,
+    duty: `Duty aboard: ${pick(PIRATE.duty, 'd')}. Weapon of choice: ${pick(PIRATE.weapon, 'w')}.`,
+  };
+}
+
+function pirateSection(crew, settings, extra, pass) {
+  if (settings.pirate_on === '0') return '';
+  const canSave = !!(extra && extra.cabin);
+  const rows = (crew || []).map((c) => `<li><span class="rk">&#9760;</span><span class="who">${esc(c.pirate_name)}<small>${c.cabin_number ? 'Cabin ' + esc(c.cabin_number) : ''}${c.duty ? (c.cabin_number ? ' · ' : '') + esc(String(c.duty).replace(/^Duty aboard: /, '').replace(/\. Weapon.*$/, '')) : ''}</small></span></li>`).join('');
+  return `<section id="pirates" style="padding-top:0;"><div class="container"><div class="lg-you lg-ref">
+  <div class="card lg-pirate">
+    <span class="eyebrow">Parrots &amp; Pirates</span>
+    <h3 style="margin:0 0 .3rem;">What's your pirate name?</h3>
+    <p style="margin:0;color:var(--ink-soft);font-size:.95rem;">Every Drifter needs one before Pirate Night. Type your first name and the Dive Bar will christen you. Same name, same pirate, every time, so you can't weasel out of it.</p>
+    <div class="row"><input type="text" id="pn" placeholder="Your first name" autocomplete="given-name" autocapitalize="words" maxlength="40"><button class="btn btn-gold" type="button" id="pnGo">Christen me</button></div>
+    <div class="result" id="pnRes" hidden>
+      <small>Hear ye, hear ye</small>
+      <b id="pnOut"></b>
+      <p id="pnDuty"></p>
+      <div class="share">
+        <button type="button" id="pnCopy">&#128203; Copy</button>
+        <a id="pnText" href="#">&#128172; Text it</a>
+        <a id="pnFb" href="#" target="_blank" rel="noopener">&#128216; Facebook</a>
+        <a id="pnShare" href="#" hidden>&#128228; Share</a>
+      </div>
+    </div>
+    <p class="again" id="pnAgain" hidden>Now do your cabin mate and see who outranks whom.</p>
+  </div>
+  <div class="card lg-crew">
+    <span class="eyebrow">The crew so far</span>
+    <h3 style="margin:0 0 .3rem;">Recently christened</h3>
+    <ul class="lg-board" id="pnCrew">${rows}</ul>
+    <p class="lg-empty" id="pnEmpty" style="text-align:left;padding:.3rem 0 0;"${rows ? ' hidden' : ''}>Nobody has been christened yet. The first name on this list gets bragging rights for life.</p>
+    <p style="margin:.8rem 0 0;color:var(--ink-soft);font-size:.82rem;">Pirate Night is one night of the sailing, date to be announced. Full regalia expected: hat, patch, beads and attitude.</p>
+  </div>
+</div></div></section>
+<script>(function(){
+var L=${JSON.stringify(PIRATE)};var SAVE=${canSave ? 'true' : 'false'};var PASS=${JSON.stringify(pass || '')};
+function h(s){var x=0;for(var i=0;i<s.length;i++){x=(Math.imul(x,31)+s.charCodeAt(i))>>>0;}return x;}
+function gen(raw){var n=String(raw||'').trim().replace(/\\s+/g,' ');if(!n)return null;var first=n.split(' ')[0].replace(/[^A-Za-z'\\-]/g,'').slice(0,24);if(!first)return null;first=first.charAt(0).toUpperCase()+first.slice(1);var k=first.toLowerCase();function pick(list,salt){return list[h(k+salt)%list.length];}
+return {first:first,name:pick(L.rank,'')+' '+pick(L.adj,'x')+' '+first+' '+pick(L.tail,'y'),duty:'Duty aboard: '+pick(L.duty,'d')+'. Weapon of choice: '+pick(L.weapon,'w')+'.'};}
+var $=function(i){return document.getElementById(i);};var cur=null;
+function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+function renderCrew(list){var ul=$('pnCrew');ul.innerHTML=list.map(function(c){var d=(c.duty||'').replace(/^Duty aboard: /,'').replace(/\\. Weapon.*$/,'');return '<li><span class="rk">&#9760;</span><span class="who">'+esc(c.pirate_name)+'<small>'+(c.cabin_number?'Cabin '+esc(c.cabin_number):'')+(d?(c.cabin_number?' · ':'')+esc(d):'')+'</small></span></li>';}).join('');$('pnEmpty').hidden=list.length>0;}
+function run(){var p=gen($('pn').value);if(!p){$('pn').focus();return;}cur=p;$('pnOut').textContent=p.name;$('pnDuty').textContent=p.duty;$('pnRes').hidden=false;$('pnAgain').hidden=false;
+var msg='My pirate name for the International Parrothead Day Cruise is '+p.name+'. Get yours in the Drifters Dive Bar: https://parrotheadscruise.com/drifters';var t=encodeURIComponent(msg);
+$('pnText').href='sms:?&body='+t;$('pnFb').href='https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent('https://parrotheadscruise.com/drifters')+'&quote='+t;
+var sh=$('pnShare');if(navigator.share){sh.hidden=false;sh.onclick=function(e){e.preventDefault();navigator.share({text:msg}).catch(function(){});};}
+$('pnCopy').onclick=function(){var done=function(){$('pnCopy').textContent='Copied';setTimeout(function(){$('pnCopy').innerHTML='&#128203; Copy';},1500);};if(navigator.clipboard){navigator.clipboard.writeText(msg).then(done,done);}else{done();}};
+if(SAVE){fetch('/drifters/pirate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:p.first,s:PASS})}).then(function(r){return r.json();}).then(function(d){if(d&&d.crew)renderCrew(d.crew);}).catch(function(){});}}
+$('pnGo').onclick=run;$('pn').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();run();}});
+})();</script>`;
+}
+
 function emailCard(subs, extra, sfx, pass) {
   const state = extra ? extra.sub : '';
   const msg = state === 'ok'
@@ -444,6 +542,7 @@ function loungePage(who, settings, posts, events, dates, links, pass, extra) {
 ${linkNote}
 ${youSection}
 ${referralSection(extra && extra.refLink, (extra && extra.board) || [], extra && extra.cabin, settings, extra)}
+${pirateSection((extra && extra.crew) || [], settings, extra, pass)}
 <section><div class="container">
   <div class="section-head"><span class="eyebrow">Latest from the PHlock</span><h2>News &amp; Newsletters</h2></div>
   <div class="grid grid-3">${postCards}</div>
@@ -587,6 +686,21 @@ export async function handleLounge(request, env, url) {
     return redirect(back + 'ok#updates');
   }
 
+  // Parrots & Pirates: save a christening for the "recently christened" list. JSON in, JSON out.
+  if (path === '/drifters/pirate' && method === 'POST') {
+    let body = {};
+    try { body = await request.json(); } catch { return json({ error: 'bad_request' }, 400); }
+    const passed = clip(body.s, 80) || clip(url.searchParams.get('s'), 80);
+    const guest = await currentGuest(request, env, new URL(`/drifters?s=${encodeURIComponent(passed)}`, SITE));
+    if (!guest || !guest.cabin_id) return json({ error: 'unauthorized' }, 401);
+    const settings = await getLoungeSettings(env.DB);
+    if (settings.pirate_on === '0') return json({ error: 'off' }, 404);
+    const p = pirateNameFor(body.name);
+    if (!p) return json({ error: 'missing_name' }, 400);
+    await upsertPirate(env.DB, { id: crypto.randomUUID(), cabin_id: guest.cabin_id, first_name: p.first, first_lower: p.first.toLowerCase(), pirate_name: p.name, duty: p.duty, created_at: Date.now() });
+    return json({ ok: true, pirate: p, crew: await listPirates(env.DB, 8) });
+  }
+
   if (path === '/drifters/email/unsubscribe' && (method === 'GET' || method === 'POST')) {
     const t = clip(url.searchParams.get('t'), 80);
     if (t) await deleteSubscriberByToken(env.DB, t);
@@ -636,7 +750,11 @@ export async function handleLounge(request, env, url) {
       board = await listReferralBoard(env.DB);
     } catch { /* the page still renders without the board */ }
   }
-  const extra = { cabin, subs, admin: !!who.admin, sub: clip(url.searchParams.get('sub'), 8), refLink, board };
+  let crew = [];
+  if (settings.pirate_on !== '0') {
+    try { crew = await listPirates(env.DB, 8); } catch { /* the card still renders */ }
+  }
+  const extra = { cabin, subs, admin: !!who.admin, sub: clip(url.searchParams.get('sub'), 8), refLink, board, crew };
   return html(loungePage(who.name, settings, posts.filter((p) => p.published || who.admin), events, dates, links, pass, extra));
 }
 
@@ -750,15 +868,16 @@ export async function handleLoungeAdmin(request, env, url) {
   }
 
   if (path === '/api/admin/lounge' && method === 'GET') {
-    const [settings, posts, events, dates, links, referrals] = await Promise.all([
+    const [settings, posts, events, dates, links, referrals, pirateCount] = await Promise.all([
       getLoungeSettings(env.DB),
       listLounge(env.DB, 'posts'),
       listLounge(env.DB, 'events'),
       listLounge(env.DB, 'dates'),
       listLounge(env.DB, 'links'),
       listReferralBoard(env.DB).catch(() => []),
+      countPirates(env.DB).catch(() => 0),
     ]);
-    return json({ settings, posts, events, dates, links, referrals });
+    return json({ settings, posts, events, dates, links, referrals, pirates: pirateCount });
   }
 
   if (method !== 'POST') return json({ error: 'not_found' }, 404);
@@ -775,6 +894,7 @@ export async function handleLoungeAdmin(request, env, url) {
     if (body.pinned_body !== undefined) await setLoungeSetting(env.DB, 'pinned_body', clip(body.pinned_body, 2000));
     if (body.referral_on !== undefined) await setLoungeSetting(env.DB, 'referral_on', body.referral_on ? '1' : '0');
     if (body.referral_prize !== undefined) await setLoungeSetting(env.DB, 'referral_prize', clip(body.referral_prize, 300));
+    if (body.pirate_on !== undefined) await setLoungeSetting(env.DB, 'pirate_on', body.pirate_on ? '1' : '0');
     return json({ ok: true, settings: await getLoungeSettings(env.DB) });
   }
 

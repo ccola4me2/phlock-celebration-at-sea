@@ -149,6 +149,16 @@ export async function ensureSchema(db) {
     )`,
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_lounge_subs_cabin_email ON lounge_subscribers(cabin_id, email)`,
     `CREATE INDEX IF NOT EXISTS idx_lounge_subs_token ON lounge_subscribers(token)`,
+    `CREATE TABLE IF NOT EXISTS lounge_pirates (
+      id TEXT PRIMARY KEY,
+      cabin_id TEXT NOT NULL,
+      first_name TEXT NOT NULL,
+      first_lower TEXT NOT NULL,
+      pirate_name TEXT NOT NULL,
+      duty TEXT,
+      created_at INTEGER NOT NULL
+    )`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_lounge_pirates_cabin_name ON lounge_pirates(cabin_id, first_lower)`,
     `CREATE TABLE IF NOT EXISTS lounge_signins (
       id TEXT PRIMARY KEY,
       created_at INTEGER NOT NULL,
@@ -492,6 +502,37 @@ export function insertShortLink(db, l) {
 export async function listShortLinks(db) {
   const rows = await db.prepare('SELECT * FROM short_links ORDER BY created_at DESC LIMIT 500').all();
   return rows.results || [];
+}
+
+// ---- pirate names (Parrots & Pirates) ----
+/** Save a christening; the same first name in the same cabin just refreshes its time. */
+export function upsertPirate(db, p) {
+  return db
+    .prepare(
+      `INSERT INTO lounge_pirates (id, cabin_id, first_name, first_lower, pirate_name, duty, created_at)
+       VALUES (?,?,?,?,?,?,?)
+       ON CONFLICT(cabin_id, first_lower) DO UPDATE SET pirate_name = excluded.pirate_name, duty = excluded.duty, created_at = excluded.created_at`
+    )
+    .bind(p.id, p.cabin_id, p.first_name, p.first_lower, p.pirate_name, p.duty || '', p.created_at)
+    .run();
+}
+
+/** The most recently christened, with their cabin numbers. */
+export async function listPirates(db, limit = 8) {
+  const rows = await db
+    .prepare(
+      `SELECT p.pirate_name, p.duty, p.created_at, c.cabin_number
+       FROM lounge_pirates p JOIN cabins c ON c.id = p.cabin_id
+       ORDER BY p.created_at DESC LIMIT ?`
+    )
+    .bind(Math.max(1, Math.min(50, limit)))
+    .all();
+  return rows.results || [];
+}
+
+export async function countPirates(db) {
+  const r = await db.prepare('SELECT COUNT(*) AS n FROM lounge_pirates').first();
+  return (r && r.n) || 0;
 }
 
 // ---- cabin referral links (Bring a friend) ----
