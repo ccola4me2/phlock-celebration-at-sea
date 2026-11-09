@@ -366,10 +366,9 @@ function referralSection(link, board, cabin, settings, extra) {
     linkCard = `<div class="card">
     <span class="eyebrow">Bring a friend</span>
     <h3 style="margin:0 0 .3rem;">Your cabin's link</h3>
-    <p style="margin:0;color:var(--ink-soft);font-size:.95rem;">Every friend who asks about the cruise through this link counts for your cabin. Text it, post it, email it. When they book, you climb the board.</p>
+    <p style="margin:0;color:var(--ink-soft);font-size:.95rem;">Every friend who asks about the cruise through this link counts for your cabin. Post it, email it, share it. When they book, you climb the board.</p>
     <div class="lg-link"><input type="text" value="${esc(url)}" readonly onclick="this.select()" id="refUrl"><button class="btn btn-gold" type="button" id="refCopy">Copy</button></div>
     <div class="lg-share">
-      <a href="sms:?&amp;body=${text}">&#128172; Text it</a>
       <a href="https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}" target="_blank" rel="noopener">&#128216; Facebook</a>
       <a href="mailto:?subject=${encodeURIComponent('Come cruise with us, June 2027')}&amp;body=${text}">&#9993;&#65039; Email</a>
       <a href="#" id="refShare" hidden>&#128228; Share</a>
