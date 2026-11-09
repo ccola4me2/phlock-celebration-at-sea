@@ -531,7 +531,8 @@ export async function listPirates(db, limit = 8) {
 }
 
 export async function countPirates(db) {
-  const r = await db.prepare('SELECT COUNT(*) AS n FROM lounge_pirates').first();
+  // Only names whose cabin still exists, the same rows the Dive Bar shows.
+  const r = await db.prepare('SELECT COUNT(*) AS n FROM lounge_pirates p JOIN cabins c ON c.id = p.cabin_id').first();
   return (r && r.n) || 0;
 }
 
