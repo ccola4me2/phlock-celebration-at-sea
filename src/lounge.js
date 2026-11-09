@@ -286,7 +286,7 @@ function foot(who, pass) {
   const hidden = pass ? `<input type="hidden" name="s" value="${esc(pass)}">` : '';
   return `</main>
 <footer class="site-footer"><div class="container"><div class="footer-bottom lg-foot">
-  <span>&copy; 2026&ndash;2027 Prestige Travel Vacations LLC, Turner Travel &amp; Cruises Tours &amp; Travel. The Drifters Dive Bar is private to booked guests.</span>
+  <span>&copy; 2026&ndash;2027 Prestige Travel Vacations LLC, Turner Travel, &amp; Cruises Tours &amp; Travel. The Drifters Dive Bar is private to booked guests.</span>
   ${who ? `<span>Signed in as ${esc(who)} &middot; <form method="post" action="/drifters/logout" style="display:inline">${hidden}<button type="submit">Sign out</button></form></span>` : ''}
 </div></div></footer>
 <script src="/js/main.js"></script></body></html>`;
@@ -781,7 +781,7 @@ function postEmailHtml(env, post, unsub) {
   </td></tr>
   <tr><td style="background:#f5efe2;padding:16px 32px;font-size:12px;line-height:1.6;color:#55606c;text-align:center;">
     You asked for Dive Bar updates on parrotheadscruise.com. <a href="${unsub}" style="color:#123152;">Unsubscribe</a> any time.<br>
-    Prestige Travel Vacations LLC, Turner Travel &amp; Cruises Tours &amp; Travel${postal ? ' &middot; ' + esc(postal) : ''}
+    Prestige Travel Vacations LLC, Turner Travel, &amp; Cruises Tours &amp; Travel${postal ? ' &middot; ' + esc(postal) : ''}
   </td></tr>
 </table></td></tr></table></body></html>`;
 }
