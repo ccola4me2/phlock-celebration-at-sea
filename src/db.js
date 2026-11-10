@@ -684,9 +684,11 @@ export function deleteDrifterSession(db, id) {
 export function findCabinForSignIn(db, resNumber, lastNameLower) {
   return db
     .prepare(
+      // Letters only on both sides: "O' Neill", "O'Neill", "ONeill" and "Sullivan-Dunn" all match
+      // however the guest types them, and a reservation number stored with a space still matches.
       `SELECT * FROM cabins
-       WHERE TRIM(res_number) = ? AND status <> 'available'
-         AND lower(name) LIKE '%' || ? || '%' LIMIT 1`
+       WHERE REPLACE(REPLACE(TRIM(res_number), ' ', ''), '-', '') = ? AND status <> 'available'
+         AND REPLACE(REPLACE(REPLACE(lower(name), '''', ''), '-', ''), ' ', '') LIKE '%' || ? || '%' LIMIT 1`
     )
     .bind(resNumber, lastNameLower)
     .first();

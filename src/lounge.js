@@ -631,8 +631,11 @@ export async function handleLounge(request, env, url) {
     // People type "Jim Dunn" or "Dunn, James" in a box labelled last name. Try
     // the whole entry first, then each word (last word first), so any name on
     // the booking gets them in.
-    const words = raw.split(' ').filter((w) => w.length >= 2);
-    const candidates = [...new Set([raw, ...words.slice().reverse()])];
+    // Compared letters-only on both sides (see findCabinForSignIn), so "O' Neill" in the manifest
+    // matches "oneill", and "Sullivan-Dunn" matches a booking that says "Dunn".
+    const letters = (w) => w.replace(/[^a-z]/g, '');
+    const words = raw.split(/[\s\-']+/).map(letters).filter((w) => w.length >= 2);
+    const candidates = [...new Set([letters(raw), ...words.slice().reverse()])].filter(Boolean);
     let cabin = null;
     for (const c of candidates) {
       cabin = await findCabinForSignIn(env.DB, res, c);
