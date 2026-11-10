@@ -37,10 +37,10 @@ import {
   setPostEmailed,
   ensureReferralLink,
   listReferralBoard,
-  upsertPirate,
   listPirates,
   countPirates,
 } from './db.js';
+import { christenPirate, previewPirate } from './pirates.js';
 import { json, parseCookies, randomToken, sha256Hex } from './util.js';
 
 const SITE = 'https://parrotheadscruise.com';
@@ -393,46 +393,18 @@ function referralSection(link, board, cabin, settings, extra) {
 }
 
 // ---- Parrots & Pirates: the name generator ----
-// Deterministic: the same first name always gets the same pirate, so nobody can re-roll
-// their way out of "Deckhand". The same lists and the same hash run in the browser for an
-// instant result and here when the christening is saved, so the two never disagree.
-const PIRATE = {
-  rank: ['Captain', 'Commodore', 'Admiral', 'First Mate', 'Bosun', 'Quartermaster', "Cap'n", 'Rear Admiral', 'Navigator', 'Lookout', 'Skipper', 'Harbormaster'],
-  adj: ['Salty', 'Barefoot', 'Sunburnt', 'Rum-Soaked', 'Flip-Flop', 'Landshark', 'Coconut', 'Tiki', 'Hammock-Bound', 'Sandbar', 'One-Flop', "Lime-Squeezin'", "Blender-Breakin'", 'Latitude-Lost', 'Boat-Drink', 'Cheeseburger', 'Fins-Up', 'Volcano', 'Last-Mango', 'Pencil-Thin', 'Banana-Wind', 'Jolly', 'Fruitcake', 'Parakeet', 'Grapefruit', 'Pink-Crustacean', 'Havana', 'Ragtop', 'Lone-Palm', 'Conch-Blowin\''],
-  tail: ['the Unanchored', 'of the Lost Shaker', 'Scourge of the Lido Deck', 'Terror of Duval Street', 'of Key West', 'the Latitude-Challenged', 'Keeper of the Last Mango', 'the Mostly Harmless', 'of the Flip Flop Bar', 'who Fears No Blender', 'Protector of the Pool Deck', 'the Perpetually Boat-Drunk', 'of Seven Mile Beach', 'Admiral of the Hot Tub', 'the Volcano-Tested', 'of One Particular Harbour', 'who Grew Older but Not Up', 'of the Coconut Telegraph', 'Defender of the Cheeseburger', 'Mayor of Margaritaville', 'Ruler of the Tiki Bar', 'Bane of Hurricane Season', 'Keeper of the Tin Cup Chalice', 'who Never Found the Salt', 'Lookout of the Hemisphere Dancer', 'of the Pascagoula Run', 'Sultan of Sunsets', 'the Barefoot Buccaneer', 'Warden of the Towel Chairs', 'who Claims Every Hammock'],
-  duty: ['Keeper of the Blender', 'Officer in Charge of Sunscreen', 'Chief Hammock Inspector', 'Head of the Conga Line', 'Minister of Boat Drinks', 'Lookout for Land Sharks', 'Quartermaster of Salt Shakers', 'Navigator, cheerfully lost', 'Judge of the Cannonball Contest', 'Sergeant at Arms of the Buffet Line', 'Master of the Cheeseburger Grill', 'Curator of Hawaiian Shirts', 'Commander of the Sailaway Playlist', 'Keeper of the Sunset Toast', 'Ambassador to Key West', 'Admiral of the Fins Up Salute', 'Inspector of Flip-Flop Tan Lines', 'Chaplain of 5 O\'Clock Somewhere', 'Treasurer of the Swear Jar', 'Captain of the Late Seating'],
-  weapon: ['a salt shaker', 'a blender on high', 'a frozen concoction', 'a single flip-flop', 'a conch shell', 'a ukulele, badly tuned', 'a koozie', 'sunscreen, SPF 50', 'a parrot on the shoulder', 'a boat drink in each hand', 'a pool noodle', 'a paper umbrella', 'a tiki torch', 'a beach towel claimed at 6 AM', 'a shaker of salt, finally found', 'a cheeseburger, medium rare'],
-};
-function pirateHash(s) {
-  let x = 0;
-  for (let i = 0; i < s.length; i++) x = (Math.imul(x, 31) + s.charCodeAt(i)) >>> 0;
-  return x;
-}
-export function pirateNameFor(raw) {
-  const n = String(raw || '').trim().replace(/\s+/g, ' ');
-  if (!n) return null;
-  let first = n.split(' ')[0].replace(/[^A-Za-z'\-]/g, '').slice(0, 24);
-  if (!first) return null;
-  first = first.charAt(0).toUpperCase() + first.slice(1);
-  const k = first.toLowerCase();
-  const pick = (list, salt) => list[pirateHash(k + salt) % list.length];
-  return {
-    first,
-    name: `${pick(PIRATE.rank, '')} ${pick(PIRATE.adj, 'x')} ${first} ${pick(PIRATE.tail, 'y')}`,
-    duty: `Duty aboard: ${pick(PIRATE.duty, 'd')}. Weapon of choice: ${pick(PIRATE.weapon, 'w')}.`,
-  };
-}
-
+// The names themselves are made in pirates.js, on the server, so that no two Drifters are handed
+// the same nickname, title, duty or weapon. The page only asks and shows the answer.
 function pirateSection(crew, settings, extra, pass) {
   if (settings.pirate_on === '0') return '';
-  const canSave = !!(extra && extra.cabin);
   const rows = (crew || []).map((c) => `<li><span class="rk">&#9760;</span><span class="who">${esc(c.pirate_name)}<small>${c.cabin_number ? 'Cabin ' + esc(c.cabin_number) : ''}${c.duty ? (c.cabin_number ? ' · ' : '') + esc(String(c.duty).replace(/^Duty aboard: /, '').replace(/\. Weapon.*$/, '')) : ''}</small></span></li>`).join('');
   return `<section id="pirates" style="padding-top:0;"><div class="container"><div class="lg-you lg-ref">
   <div class="card lg-pirate">
     <span class="eyebrow">Parrots &amp; Pirates</span>
     <h3 style="margin:0 0 .3rem;">What's your pirate name?</h3>
-    <p style="margin:0;color:var(--ink-soft);font-size:.95rem;">Every Drifter needs one before Pirate Night. Type your first name and the Dive Bar will christen you. Same name, same pirate, every time, so you can't weasel out of it.</p>
+    <p style="margin:0;color:var(--ink-soft);font-size:.95rem;">Every Drifter needs one before Pirate Night. Type your first name and the Dive Bar will christen you. No two Drifters get the same name, and once you're christened it's yours for the voyage, so there's no weaseling out of it.</p>
     <div class="row"><input type="text" id="pn" placeholder="Your first name" autocomplete="given-name" autocapitalize="words" maxlength="40"><button class="btn btn-gold" type="button" id="pnGo">Christen me</button></div>
+    <p class="again" id="pnErr" hidden></p>
     <div class="result" id="pnRes" hidden>
       <small>Hear ye, hear ye</small>
       <b id="pnOut"></b>
@@ -444,6 +416,7 @@ function pirateSection(crew, settings, extra, pass) {
       </div>
     </div>
     <p class="again" id="pnAgain" hidden>Now do your cabin mate and see who outranks whom.</p>
+    <p class="again" id="pnNote" hidden>Admin preview: this name is not saved, so a guest may be given it. Guests keep the name they get.</p>
   </div>
   <div class="card lg-crew">
     <span class="eyebrow">The crew so far</span>
@@ -454,19 +427,19 @@ function pirateSection(crew, settings, extra, pass) {
   </div>
 </div></div></section>
 <script>(function(){
-var L=${JSON.stringify(PIRATE)};var SAVE=${canSave ? 'true' : 'false'};var PASS=${JSON.stringify(pass || '')};
-function h(s){var x=0;for(var i=0;i<s.length;i++){x=(Math.imul(x,31)+s.charCodeAt(i))>>>0;}return x;}
-function gen(raw){var n=String(raw||'').trim().replace(/\\s+/g,' ');if(!n)return null;var first=n.split(' ')[0].replace(/[^A-Za-z'\\-]/g,'').slice(0,24);if(!first)return null;first=first.charAt(0).toUpperCase()+first.slice(1);var k=first.toLowerCase();function pick(list,salt){return list[h(k+salt)%list.length];}
-return {first:first,name:pick(L.rank,'')+' '+pick(L.adj,'x')+' '+first+' '+pick(L.tail,'y'),duty:'Duty aboard: '+pick(L.duty,'d')+'. Weapon of choice: '+pick(L.weapon,'w')+'.'};}
-var $=function(i){return document.getElementById(i);};var cur=null;
+var PASS=${JSON.stringify(pass || '')};
+var $=function(i){return document.getElementById(i);};
 function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
 function renderCrew(list){var ul=$('pnCrew');ul.innerHTML=list.map(function(c){var d=(c.duty||'').replace(/^Duty aboard: /,'').replace(/\\. Weapon.*$/,'');return '<li><span class="rk">&#9760;</span><span class="who">'+esc(c.pirate_name)+'<small>'+(c.cabin_number?'Cabin '+esc(c.cabin_number):'')+(d?(c.cabin_number?' · ':'')+esc(d):'')+'</small></span></li>';}).join('');$('pnEmpty').hidden=list.length>0;}
-function run(){var p=gen($('pn').value);if(!p){$('pn').focus();return;}cur=p;$('pnOut').textContent=p.name;$('pnDuty').textContent=p.duty;$('pnRes').hidden=false;$('pnAgain').hidden=false;
-var msg='My pirate name for the International Parrothead Day Cruise is '+p.name+'. Get yours in the Drifters Dive Bar: https://parrotheadscruise.com/drifters';var t=encodeURIComponent(msg);
-$('pnFb').href='https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent('https://parrotheadscruise.com/drifters')+'&quote='+t;
+function show(p,preview){$('pnOut').textContent=p.name;$('pnDuty').textContent=p.duty;$('pnRes').hidden=false;$('pnAgain').hidden=false;$('pnNote').hidden=!preview;
+var msg='My pirate name for the International Parrothead Day Cruise is '+p.name+'. Get yours in the Drifters Dive Bar: https://parrotheadscruise.com/drifters';
+$('pnFb').href='https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent('https://parrotheadscruise.com/drifters')+'&quote='+encodeURIComponent(msg);
 var sh=$('pnShare');if(navigator.share){sh.hidden=false;sh.onclick=function(e){e.preventDefault();navigator.share({text:msg}).catch(function(){});};}
-$('pnCopy').onclick=function(){var done=function(){$('pnCopy').textContent='Copied';setTimeout(function(){$('pnCopy').innerHTML='&#128203; Copy';},1500);};if(navigator.clipboard){navigator.clipboard.writeText(msg).then(done,done);}else{done();}};
-if(SAVE){fetch('/drifters/pirate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:p.first,s:PASS})}).then(function(r){return r.json();}).then(function(d){if(d&&d.crew)renderCrew(d.crew);}).catch(function(){});}}
+$('pnCopy').onclick=function(){var done=function(){$('pnCopy').textContent='Copied';setTimeout(function(){$('pnCopy').innerHTML='&#128203; Copy';},1500);};if(navigator.clipboard){navigator.clipboard.writeText(msg).then(done,done);}else{done();}};}
+function fail(code){var e=$('pnErr');e.textContent=code==='missing_name'?'Type a first name, letters only.':code==='unauthorized'?'Your sign-in has timed out. Reload the page and sign in again.':"The ship's log is busy. Try again in a moment.";e.hidden=false;}
+var busy=false;
+function run(){var n=$('pn').value.trim();if(!n){$('pn').focus();return;}if(busy)return;busy=true;$('pnErr').hidden=true;var b=$('pnGo');b.disabled=true;b.textContent="Consulting the ship's log";
+fetch('/drifters/pirate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n,s:PASS})}).then(function(r){return r.json().then(function(d){return {ok:r.ok,d:d};});}).then(function(x){if(!x.ok||!x.d.pirate){fail(x.d&&x.d.error);}else{show(x.d.pirate,x.d.preview);if(x.d.crew)renderCrew(x.d.crew);}}).catch(function(){fail('');}).then(function(){busy=false;b.disabled=false;b.textContent='Christen me';});}
 $('pnGo').onclick=run;$('pn').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();run();}});
 })();</script>`;
 }
@@ -690,19 +663,28 @@ export async function handleLounge(request, env, url) {
     return redirect(back + 'ok#updates');
   }
 
-  // Parrots & Pirates: save a christening for the "recently christened" list. JSON in, JSON out.
+  // Parrots & Pirates: give this first name its pirate name. A guest's is saved against the cabin
+  // and never changes; an admin previewing the page is shown one and nothing is kept.
   if (path === '/drifters/pirate' && method === 'POST') {
     let body = {};
     try { body = await request.json(); } catch { return json({ error: 'bad_request' }, 400); }
     const passed = clip(body.s, 80) || clip(url.searchParams.get('s'), 80);
-    const guest = await currentGuest(request, env, new URL(`/drifters?s=${encodeURIComponent(passed)}`, SITE));
-    if (!guest || !guest.cabin_id) return json({ error: 'unauthorized' }, 401);
+    const who = await viewer(request, env, new URL(`/drifters?s=${encodeURIComponent(passed)}`, SITE));
+    if (!who) return json({ error: 'unauthorized' }, 401);
     const settings = await getLoungeSettings(env.DB);
     if (settings.pirate_on === '0') return json({ error: 'off' }, 404);
-    const p = pirateNameFor(body.name);
+    let p = null;
+    let preview = false;
+    if (who.cabin_id) {
+      const cabin = await getCabin(env.DB, who.cabin_id);
+      if (!cabin) return json({ error: 'unauthorized' }, 401);
+      p = await christenPirate(env.DB, cabin, body.name, Date.now());
+    } else {
+      preview = true;
+      p = await previewPirate(env.DB, body.name);
+    }
     if (!p) return json({ error: 'missing_name' }, 400);
-    await upsertPirate(env.DB, { id: crypto.randomUUID(), cabin_id: guest.cabin_id, first_name: p.first, first_lower: p.first.toLowerCase(), pirate_name: p.name, duty: p.duty, created_at: Date.now() });
-    return json({ ok: true, pirate: p, crew: await listPirates(env.DB, 8) });
+    return json({ ok: true, pirate: p, preview, crew: await listPirates(env.DB, 8) });
   }
 
   if (path === '/drifters/email/unsubscribe' && (method === 'GET' || method === 'POST')) {

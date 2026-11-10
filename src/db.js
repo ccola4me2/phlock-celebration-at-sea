@@ -156,6 +156,7 @@ export async function ensureSchema(db) {
       first_lower TEXT NOT NULL,
       pirate_name TEXT NOT NULL,
       duty TEXT,
+      parts TEXT,
       created_at INTEGER NOT NULL
     )`,
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_lounge_pirates_cabin_name ON lounge_pirates(cabin_id, first_lower)`,
@@ -196,6 +197,7 @@ export async function ensureSchema(db) {
     // Dive Bar posts remember when they were emailed to subscribers.
     'ALTER TABLE lounge_posts ADD COLUMN emailed_at INTEGER',
     'ALTER TABLE lounge_posts ADD COLUMN image_url TEXT',
+    'ALTER TABLE lounge_pirates ADD COLUMN parts TEXT',
   ];
   for (const sql of migrations) {
     try {
@@ -506,16 +508,31 @@ export async function listShortLinks(db) {
 }
 
 // ---- pirate names (Parrots & Pirates) ----
-/** Save a christening; the same first name in the same cabin just refreshes its time. */
-export function upsertPirate(db, p) {
+/** The name already saved for this first name in this cabin, if there is one. */
+export function getPirate(db, cabinId, firstLower) {
+  return db.prepare('SELECT * FROM lounge_pirates WHERE cabin_id = ? AND first_lower = ?').bind(cabinId, firstLower).first();
+}
+
+/** Save a christening. A second save for the same first name in the same cabin is ignored: the first name given stands. */
+export function insertPirate(db, p) {
   return db
     .prepare(
-      `INSERT INTO lounge_pirates (id, cabin_id, first_name, first_lower, pirate_name, duty, created_at)
-       VALUES (?,?,?,?,?,?,?)
-       ON CONFLICT(cabin_id, first_lower) DO UPDATE SET pirate_name = excluded.pirate_name, duty = excluded.duty, created_at = excluded.created_at`
+      `INSERT OR IGNORE INTO lounge_pirates (id, cabin_id, first_name, first_lower, pirate_name, duty, parts, created_at)
+       VALUES (?,?,?,?,?,?,?,?)`
     )
-    .bind(p.id, p.cabin_id, p.first_name, p.first_lower, p.pirate_name, p.duty || '', p.created_at)
+    .bind(p.id, p.cabin_id, p.first_name, p.first_lower, p.pirate_name, p.duty || '', p.parts || null, p.created_at)
     .run();
+}
+
+/** Every christening whose cabin still exists: what has been handed out, for giving out what has not. */
+export async function listPirateParts(db) {
+  const rows = await db
+    .prepare(
+      `SELECT p.first_name, p.pirate_name, p.duty, p.parts
+       FROM lounge_pirates p JOIN cabins c ON c.id = p.cabin_id LIMIT 2000`
+    )
+    .all();
+  return rows.results || [];
 }
 
 /** The most recently christened, with their cabin numbers. */
