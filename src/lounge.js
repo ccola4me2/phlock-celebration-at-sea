@@ -198,6 +198,8 @@ const CSS = `
   .lg-ev time { flex:none; width:84px; color:#fff; font-weight:600; font-size:.9rem; }
   .lg-ev div { color:rgba(255,255,255,.85); font-size:.95rem; }
   .lg-ev div span { display:block; color:rgba(255,255,255,.55); font-size:.82rem; }
+  .lg-ev .btn-ev { display:inline-block; margin-top:.6rem; background:var(--gold); color:var(--navy-900); font-weight:700; font-size:.9rem; padding:.55rem 1rem; border-radius:8px; text-decoration:none; }
+  .lg-ev .btn-ev:hover { filter:brightness(1.06); }
   .lg-dates { list-style:none; margin:0; padding:0; }
   .lg-dates li { display:flex; gap:1rem; align-items:center; padding:.8rem 0; border-bottom:1px solid var(--cream-dark); }
   .lg-dates .d { flex:none; width:64px; text-align:center; background:var(--navy-900); color:#fff; border-radius:10px; padding:.4rem 0; line-height:1.1; }
@@ -493,6 +495,14 @@ function emailCard(subs, extra, sfx, pass) {
   </div>`;
 }
 
+// A button on a schedule entry may point inside the Dive Bar; carry the 24-hour sign-in pass with it
+// (before any #fragment) so a browser that drops cookies stays signed in.
+function withPass(url, sfx) {
+  if (!sfx || !/^\/drifters(\/|$|\?|#)/.test(url)) return url;
+  const [path, frag] = url.split('#');
+  return path + (path.includes('?') ? '&' + sfx.slice(1) : sfx) + (frag !== undefined ? '#' + frag : '');
+}
+
 function loungePage(who, settings, posts, events, dates, links, pass, extra) {
   const sfx = pass ? `?s=${encodeURIComponent(pass)}` : '';
   const youSection = `<section id="updates" style="padding-bottom:0;"><div class="container"><div class="lg-you">${yourCabinCard(extra && extra.cabin, extra)}${emailCard(extra && extra.subs, extra, sfx, pass)}</div></div></section>`;
@@ -515,7 +525,7 @@ function loungePage(who, settings, posts, events, dates, links, pass, extra) {
     d.items.push(e);
   }
   const schedule = byDay.size
-    ? [...byDay.entries()].map(([day, d]) => `<div class="lg-day"><div class="when">${fmtDay(day)}${d.label ? `<small>${esc(d.label)}</small>` : ''}</div><div>${d.items.map((e) => `<div class="lg-ev"><time>${e.start_time ? fmtTime(e.start_time) : ''}</time><div>${esc(e.title)}${e.detail ? `<span>${esc(e.detail)}</span>` : ''}</div></div>`).join('')}</div></div>`).join('')
+    ? [...byDay.entries()].map(([day, d]) => `<div class="lg-day"><div class="when">${fmtDay(day)}${d.label ? `<small>${esc(d.label)}</small>` : ''}</div><div>${d.items.map((e) => `<div class="lg-ev"><time>${e.start_time ? fmtTime(e.start_time) : ''}</time><div>${esc(e.title)}${e.detail ? `<span>${esc(e.detail)}</span>` : ''}${e.link_label && e.link_url ? `<a class="btn-ev" href="${esc(withPass(e.link_url, sfx))}">${esc(e.link_label)}</a>` : ''}</div></div>`).join('')}</div></div>`).join('')
     : '<p class="lg-empty">The Drifters schedule will be posted here as events are confirmed.</p>';
 
   const dateList = dates.length
@@ -926,6 +936,11 @@ function cleanRow(type, b) {
     if (b.title !== undefined) row.title = clip(b.title, 200);
     if (b.detail !== undefined) row.detail = clip(b.detail, 500);
     if (b.day_label !== undefined) row.day_label = clip(b.day_label, 40);
+    if (b.link_label !== undefined) row.link_label = clip(b.link_label, 60);
+    if (b.link_url !== undefined) {
+      const u = clip(b.link_url, 300);
+      row.link_url = /^(\/[^\s]*|https:\/\/[^\s]+)$/.test(u) ? u : '';
+    }
   } else if (type === 'dates') {
     if (b.due_date !== undefined) row.due_date = parseYmd(b.due_date) ? clip(b.due_date, 10) : '';
     if (b.title !== undefined) row.title = clip(b.title, 200);

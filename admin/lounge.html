@@ -154,7 +154,9 @@
       { k: 'start_time', l: 'Start time', t: 'time' },
       { k: 'title', l: 'Event', t: 'text', full: true },
       { k: 'detail', l: 'Where / detail (one line)', t: 'text', full: true },
-      { k: 'day_label', l: 'Day label (Pre-cruise, Embarkation, Sea day, port name)', t: 'text', full: true } ],
+      { k: 'day_label', l: 'Day label (Pre-cruise, Embarkation, Sea day, port name)', t: 'text', full: true },
+      { k: 'link_label', l: 'Button (optional): the words on it, e.g. Sign up', t: 'text' },
+      { k: 'link_url', l: 'Button link (optional): a Dive Bar page like /drifters/post/ID#signup, or a full https link', t: 'text', full: true } ],
       row: function (e) { return [fmtDate(e.day) + (e.day_label ? '<br><span style="color:var(--a-soft);font-size:0.8rem;">' + esc(e.day_label) + '</span>' : ''), fmtTime(e.start_time), '<strong>' + esc(e.title) + '</strong>', esc(e.detail)]; } },
     dates: { label: 'deadline', fields: [
       { k: 'due_date', l: 'Date', t: 'date' },
