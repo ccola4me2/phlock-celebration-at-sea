@@ -550,12 +550,12 @@ ${pirateSection((extra && extra.crew) || [], settings, extra, pass)}
   ${schedule}
 </div></section>
 
-<section class="bg-cream-dark"><div class="container">
-  <div class="grid grid-2" style="gap:var(--space-5);align-items:flex-start;">
-    <div><div class="section-head" style="text-align:left;margin:0 0 1.2rem;"><span class="eyebrow">Don't miss</span><h2>Key dates &amp; deadlines</h2></div>${dateList}</div>
+${dates.length || links.length ? `<section class="bg-cream-dark"><div class="container">
+  <div class="grid${dates.length ? ' grid-2' : ''}" style="gap:var(--space-5);align-items:flex-start;">
+    ${dates.length ? `<div><div class="section-head" style="text-align:left;margin:0 0 1.2rem;"><span class="eyebrow">Don't miss</span><h2>Key dates &amp; deadlines</h2></div>${dateList}</div>` : ''}
     <div><div class="section-head" style="text-align:left;margin:0 0 1.2rem;"><span class="eyebrow">Handy</span><h2>Documents &amp; links</h2></div>${linkList}</div>
   </div>
-</div></section>
+</div></section>` : ''}
 ${crewCards()}` + foot(who, pass);
 }
 
