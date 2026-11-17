@@ -18,7 +18,8 @@ const SITE = 'https://parrotheadscruise.com';
 const PREFIX = '/go/';
 const CODE_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const PAGES = ['/', '/pricing', '/faq', '/charity', '/team', '/contact', '/fb', '/fb/balcony', '/fb/keywest', '/fb/charity', '/fb/drifters'];
-const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content'];
+const DRIFTER_POST = /^\/drifters\/post\/[A-Za-z0-9-]{1,60}$/;
+const UTM_KEYS =['utm_source', 'utm_medium', 'utm_campaign', 'utm_content'];
 
 function clip(s, n) {
   return String(s == null ? '' : s).trim().slice(0, n);
@@ -37,7 +38,9 @@ export function normalizeCode(raw) {
 // Same rules as the Link Builder's client-side build(): only known pages,
 // slugged UTM values, blanks dropped.
 function buildTarget(page, utm) {
-  const u = new URL(PAGES.includes(page) ? page : '/', SITE);
+  // A single Dive Bar post (an event sign-up) is also a valid destination; a guest who is not
+  // signed in meets the sign-in first and is brought back to the post.
+  const u = new URL(PAGES.includes(page) || DRIFTER_POST.test(page) ? page : '/', SITE);
   for (const k of UTM_KEYS) {
     const v = slug(utm[k]);
     if (v) u.searchParams.set(k, v);
