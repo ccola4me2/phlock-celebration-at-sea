@@ -180,6 +180,29 @@
     var h = +m[1], ap = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; return h + ':' + m[2] + ' ' + ap;
   }
 
+  // Emailing subscribers about something on the Dive Bar. After a NEW item is saved the admin is
+  // asked once; "Email" on a row (and "Email to subscribers" on a post) does it later.
+  async function sendEmail(type, id) {
+    var m = $('pageMsg');
+    var url = type === 'posts' ? '/api/admin/lounge/posts/send' : '/api/admin/lounge/announce';
+    var res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id, type: type }) });
+    var d = await res.json().catch(function () { return {}; });
+    m.hidden = false; m.className = 'a-msg ' + (res.ok && !d.failed ? 'ok' : 'err');
+    m.textContent = res.ok ? 'Emailed ' + d.sent + ' subscriber' + (d.sent === 1 ? '' : 's') + (d.failed ? ', ' + d.failed + ' failed' : '') + (d.error === 'no_resend_key' ? ' (email is not configured)' : '') + ' ✓' : 'Could not send.';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    load();
+  }
+  async function askAndSend(type, id, title, justSaved) {
+    var n = (data.subscribers || []).length;
+    if (!id) return;
+    if (!n) { if (!justSaved) alert('No subscribers yet, nothing to send.'); return; }
+    var q = justSaved
+      ? 'Saved. Email "' + title + '" to your ' + n + ' Dive Bar subscriber' + (n === 1 ? '' : 's') + ' now?\n\nOK sends it. Cancel keeps it on the Dive Bar only; you can email it later from its row.'
+      : 'Email "' + title + '" to ' + n + ' subscriber' + (n === 1 ? '' : 's') + '?';
+    if (!confirm(q)) return;
+    await sendEmail(type, id);
+  }
+
   function suCount(id) {
     var t = (data.signups || {})[id];
     return t ? t.cabins + ' cabin' + (t.cabins === 1 ? '' : 's') + ', ' + t.guests + ' guest' + (t.guests === 1 ? '' : 's') : 'none yet';
@@ -205,10 +228,17 @@
     $('empty-' + type).hidden = rows.length > 0;
     tb.innerHTML = rows.map(function (r) {
       return '<tr>' + TYPES[type].row(r).map(function (c) { return '<td>' + c + '</td>'; }).join('') +
-        '<td style="white-space:nowrap;"><button class="a-btn a-btn-ghost" data-edit="' + type + ':' + r.id + '" style="padding:0.35em 0.7em;">Edit</button></td></tr>';
+        '<td style="white-space:nowrap;"><button class="a-btn a-btn-ghost" data-edit="' + type + ':' + r.id + '" style="padding:0.35em 0.7em;">Edit</button>' +
+        (type !== 'posts' ? ' <button class="a-btn a-btn-ghost" data-announce="' + type + ':' + r.id + '" style="padding:0.35em 0.7em;">Email</button>' : '') + '</td></tr>';
     }).join('');
     tb.querySelectorAll('[data-edit]').forEach(function (b) {
       b.onclick = function () { var p = b.getAttribute('data-edit').split(':'); openEdit(p[0], data[p[0]].find(function (x) { return x.id === p[1]; })); };
+    });
+    tb.querySelectorAll('[data-announce]').forEach(function (b) {
+      b.onclick = function () {
+        var p = b.getAttribute('data-announce').split(':'), item = data[p[0]].find(function (x) { return x.id === p[1]; });
+        askAndSend(p[0], p[1], item && item.title, false);
+      };
     });
     tb.querySelectorAll('[data-su]').forEach(function (b) { b.onclick = function () { showSignups(b.getAttribute('data-su')); }; });
     tb.querySelectorAll('[data-send]').forEach(function (b) {
@@ -310,8 +340,15 @@
     var type = $('e-type').value, T = TYPES[type], body = { id: $('e-id').value || undefined };
     T.fields.forEach(function (f) { var el = $('f-' + f.k); body[f.k] = f.t === 'checkbox' ? el.checked : el.value; });
     var res = await fetch('/api/admin/lounge/' + type, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    if (res.ok) { $('editModal').style.display = 'none'; load(); return; }
     var d = await res.json().catch(function () { return {}; });
+    if (res.ok) {
+      $('editModal').style.display = 'none';
+      var isNew = !body.id;
+      await load();
+      // A new post is offered only when it is published (a draft is not ready to send).
+      if (isNew && (type !== 'posts' || body.published)) askAndSend(type, d.id, body.title, true);
+      return;
+    }
     var e = $('editErr'); e.hidden = false;
     e.textContent = /^missing_/.test(d.error || '') ? 'Please fill in: ' + d.error.replace('missing_', '').replace('_', ' ') + (d.error === 'missing_url' ? ' (must start with https://)' : '') + '.' : 'Could not save. Please try again.';
   };

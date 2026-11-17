@@ -891,18 +891,20 @@ function postEmailHtml(env, post, unsub) {
 </table></td></tr></table></body></html>`;
 }
 
-async function emailPost(env, post, subs) {
+// One send path for every Dive Bar email: Resend batches of 100, each message with its own
+// unsubscribe link. `make(sub, unsub)` returns { subject, html, text }.
+async function sendToSubscribers(env, subs, make) {
   const key = env.RESEND_API_KEY;
   if (!key) return { sent: 0, failed: subs.length, error: 'no_resend_key' };
   const from = env.MAIL_FROM || 'Parrothead Day Cruise <noreply@parrotheadscruise.com>';
   const replyTo = String(env.DRIP_REPLY_TO || env.LEAD_NOTIFY_EMAILS || '').split(',').map((s) => s.trim()).filter(Boolean);
-  const text = `${post.title}\n\n${String(post.body || '')}\n\n${post.signup_label ? post.signup_label + ': ' + SITE + '/drifters/post/' + post.id + '#signup' : 'Open the Dive Bar: ' + SITE + '/drifters'}`;
   let sent = 0;
   let failed = 0;
   for (let i = 0; i < subs.length; i += 100) {
     const batch = subs.slice(i, i + 100).map((s) => {
       const unsub = `${SITE}/drifters/email/unsubscribe?t=${encodeURIComponent(s.token)}`;
-      const msg = { from, to: [s.email], subject: `Drifters Dive Bar: ${post.title}`, html: postEmailHtml(env, post, unsub), text: `${text}\nUnsubscribe: ${unsub}`, headers: { 'List-Unsubscribe': `<${unsub}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' } };
+      const m = make(s, unsub);
+      const msg = { from, to: [s.email], subject: m.subject, html: m.html, text: `${m.text}\nUnsubscribe: ${unsub}`, headers: { 'List-Unsubscribe': `<${unsub}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' } };
       if (replyTo.length) msg.reply_to = replyTo;
       return msg;
     });
@@ -915,6 +917,60 @@ async function emailPost(env, post, subs) {
     }
   }
   return { sent, failed };
+}
+
+async function emailPost(env, post, subs) {
+  const text = `${post.title}\n\n${String(post.body || '')}\n\n${post.signup_label ? post.signup_label + ': ' + SITE + '/drifters/post/' + post.id + '#signup' : 'Open the Dive Bar: ' + SITE + '/drifters'}`;
+  return sendToSubscribers(env, subs, (s, unsub) => ({ subject: `Drifters Dive Bar: ${post.title}`, html: postEmailHtml(env, post, unsub), text }));
+}
+
+// A schedule entry, key date or document added to the Dive Bar: a short update email, one item,
+// with a button to the Dive Bar (or to the entry's own button link, e.g. a sign-up).
+function absUrl(u) {
+  return /^https?:/i.test(u) ? u : SITE + (String(u).startsWith('/') ? u : '/' + u);
+}
+
+function updateFor(type, row) {
+  if (type === 'events') {
+    const when = [fmtDate(row.day), row.day_label].filter(Boolean).join(' \u00b7 ') + (row.start_time ? ' \u00b7 ' + fmtTime(row.start_time) : '');
+    return { kicker: 'Schedule update', when, title: row.title, detail: row.detail || '', buttonLabel: row.link_label && row.link_url ? row.link_label : 'Open the Dive Bar', buttonUrl: row.link_label && row.link_url ? absUrl(row.link_url) : `${SITE}/drifters` };
+  }
+  if (type === 'dates') {
+    return { kicker: 'New key date', when: fmtDate(row.due_date), title: row.title, detail: row.detail || '', buttonLabel: 'Open the Dive Bar', buttonUrl: `${SITE}/drifters` };
+  }
+  return { kicker: 'New on the Dive Bar', when: 'Document or link', title: row.title, detail: row.note || '', buttonLabel: 'Open it', buttonUrl: row.url };
+}
+
+function updateEmailHtml(env, u, unsub) {
+  const postal = clip(env.DRIP_POSTAL_ADDRESS, 200);
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(u.title)}</title></head>
+<body style="margin:0;padding:0;background:#f5efe2;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5efe2;padding:24px 12px;"><tr><td align="center">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;">
+  <tr><td style="background:#081627;padding:24px 32px;text-align:center;">
+    <div style="font-size:11px;letter-spacing:3px;color:#e3c878;text-transform:uppercase;">Drifters Dive Bar</div>
+    <div style="font-size:22px;font-weight:bold;color:#ffffff;letter-spacing:1px;">Parrothead Day Cruise 2027</div>
+  </td></tr>
+  <tr><td style="padding:30px 32px 8px;">
+    <div style="font-size:12px;letter-spacing:2px;color:#c9a545;text-transform:uppercase;font-weight:bold;">${esc(u.kicker)}</div>
+    <div style="font-size:13px;color:#55606c;margin:6px 0 0;">${esc(u.when)}</div>
+    <h1 style="margin:8px 0 14px;font-size:22px;line-height:1.3;color:#081627;">${esc(u.title)}</h1>
+    ${u.detail ? `<p style="margin:0 0 14px;font-size:16px;line-height:1.6;color:#22303d;">${esc(u.detail)}</p>` : ''}
+  </td></tr>
+  <tr><td style="padding:4px 32px 30px;" align="center">
+    <a href="${esc(u.buttonUrl)}" style="display:inline-block;background:#c9a545;color:#081627;text-decoration:none;font-weight:bold;font-size:16px;padding:13px 26px;border-radius:8px;">${esc(u.buttonLabel)}</a>
+  </td></tr>
+  <tr><td style="background:#f5efe2;padding:16px 32px;font-size:12px;line-height:1.6;color:#55606c;text-align:center;">
+    You asked for Dive Bar updates on parrotheadscruise.com. <a href="${unsub}" style="color:#123152;">Unsubscribe</a> any time.<br>
+    Prestige Travel Vacations LLC, Turner Travel, &amp; Cruises Tours &amp; Travel${postal ? ' &middot; ' + esc(postal) : ''}
+  </td></tr>
+</table></td></tr></table></body></html>`;
+}
+
+async function emailUpdate(env, type, row, subs) {
+  const u = updateFor(type, row);
+  const text = `${u.kicker}: ${u.title}\n${u.when}\n${u.detail ? '\n' + u.detail + '\n' : ''}\n${u.buttonLabel}: ${u.buttonUrl}`;
+  return sendToSubscribers(env, subs, (s, unsub) => ({ subject: `Drifters Dive Bar: ${u.title}`, html: updateEmailHtml(env, u, unsub), text }));
 }
 
 // ---- admin API ----
@@ -1040,6 +1096,19 @@ export async function handleLoungeAdmin(request, env, url) {
     const r = await emailPost(env, post, subs);
     if (r.sent) await setPostEmailed(env.DB, post.id, Date.now());
     return json(Object.assign({ ok: true }, r));
+  }
+
+  // Email subscribers about one schedule entry, key date or document ("Email" in the admin lists, or
+  // the prompt after adding one). Posts have their own send above.
+  if (path === '/api/admin/lounge/announce') {
+    const type = clip(body.type, 10);
+    const id = clip(body.id, 60);
+    if (!['events', 'dates', 'links'].includes(type)) return json({ error: 'bad_request' }, 400);
+    const row = id && (await getLoungeRow(env.DB, type, id));
+    if (!row) return json({ error: 'not_found' }, 404);
+    const subs = await listSubscribers(env.DB);
+    if (!subs.length) return json({ ok: true, sent: 0, failed: 0 });
+    return json(Object.assign({ ok: true }, await emailUpdate(env, type, row, subs)));
   }
 
   const m = /^\/api\/admin\/lounge\/(posts|events|dates|links)(?:\/(delete))?$/.exec(path);
