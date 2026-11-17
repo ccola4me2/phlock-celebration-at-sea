@@ -724,7 +724,9 @@ export async function handleLounge(request, env, url) {
     if (!post || !post.published || !post.signup_label) return json({ error: 'off' }, 404);
     const cabin = await getCabin(env.DB, who.cabin_id);
     if (!cabin) return json({ error: 'unauthorized' }, 401);
-    const guests = Math.floor(Number(body.guests));
+    // Only a real number cancels (0). Blank, null or text is a bad request, never a cancel.
+    const rawGuests = body.guests;
+    const guests = typeof rawGuests === 'number' || (typeof rawGuests === 'string' && /^\d{1,2}$/.test(rawGuests.trim())) ? Math.floor(Number(rawGuests)) : NaN;
     if (!(guests >= 0 && guests <= 6)) return json({ error: 'bad_request' }, 400);
     if (guests === 0) {
       await deleteSignup(env.DB, post.id, cabin.id);
@@ -972,7 +974,8 @@ export async function handleLoungeAdmin(request, env, url) {
     if (!post) return json({ error: 'not_found' }, 404);
     const rows = await listSignups(env.DB, id);
     if (url.searchParams.get('format') === 'csv') {
-      const escCsv = (v) => { const s = String(v == null ? '' : v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+      // A guest types the note, so a cell that starts like a spreadsheet formula is defused for Excel.
+      const escCsv = (v) => { let s = String(v == null ? '' : v); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
       const lines = ['cabin,reservation,name,guests,note,signed_up'].concat(rows.map((r) => [r.cabin_number, r.res_number, r.name, r.guests, r.note, new Date(r.created_at).toISOString()].map(escCsv).join(',')));
       return new Response(lines.join('\n'), { headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="dive-bar-signups.csv"', 'Cache-Control': 'no-store' } });
     }
