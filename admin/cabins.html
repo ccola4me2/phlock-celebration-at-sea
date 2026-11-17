@@ -299,7 +299,7 @@
       if (av === 'booked' && c.status === 'available') return false;
       var ev = $('fEvent').value;
       if (ev) {
-        var want = ev.slice(0, 3) === 'in:', pid = ev.slice(3);
+        var want = ev.slice(0, ev.indexOf(':')) === 'in', pid = ev.slice(ev.indexOf(':') + 1);
         if (c.status === 'available') return false;
         if (!!(c.signups && c.signups[pid]) !== want) return false;
       }
