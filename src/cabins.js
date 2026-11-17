@@ -2,7 +2,7 @@
 // Google Doc). List/save/delete plus a bulk paste-import.
 
 import { requireAdmin } from './auth.js';
-import { ensureSchema, insertCabin, listCabins, listCabinNumbers, updateCabin, updateCabinsByNumber, deleteCabin, setStatusForUnnamed, renameCabinType } from './db.js';
+import { ensureSchema, listSignupEvents, insertCabin, listCabins, listCabinNumbers, updateCabin, updateCabinsByNumber, deleteCabin, setStatusForUnnamed, renameCabinType } from './db.js';
 import { json } from './util.js';
 
 function clip(s, n) {
@@ -59,14 +59,32 @@ export async function handleListCabins(request, env, url) {
     status: q.get('status') || undefined,
     q: q.get('q') ? clip(q.get('q'), 80) : undefined,
   });
+  // Event sign-ups (Dive Bar posts with a sign-up button) ride along on each cabin, so the manifest
+  // shows who has said yes. A failure here never hides the cabin list.
+  let events = [];
+  try {
+    const su = await listSignupEvents(env.DB);
+    events = su.events.map((e) => ({ id: e.id, title: e.title, label: e.signup_label }));
+    const by = new Map();
+    for (const r of su.signups) {
+      if (!by.has(r.cabin_id)) by.set(r.cabin_id, {});
+      by.get(r.cabin_id)[r.post_id] = r.guests;
+    }
+    for (const c of cabins) c.signups = by.get(c.id) || {};
+  } catch {
+    events = [];
+  }
   if (q.get('format') === 'csv') {
     const cols = ['cabin_number', 'cabin_type', 'status', 'name', 'res_number', 'drifter', 'notes'];
     const esc = (v) => {
       const s = String(v == null ? '' : v);
       return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
     };
-    const lines = [cols.join(',')];
-    for (const c of cabins) lines.push(cols.map((k) => esc(c[k])).join(','));
+    // One extra column per sign-up event, holding the guest count (blank when not signed up).
+    const lines = [cols.concat(events.map((e) => 'signup: ' + e.label)).map(esc).join(',')];
+    for (const c of cabins) {
+      lines.push(cols.map((k) => esc(c[k])).concat(events.map((e) => esc((c.signups || {})[e.id] || ''))).join(','));
+    }
     return new Response(lines.join('\n'), {
       headers: {
         'Content-Type': 'text/csv; charset=utf-8',
@@ -75,7 +93,7 @@ export async function handleListCabins(request, env, url) {
       },
     });
   }
-  return json({ cabins });
+  return json({ cabins, events });
 }
 
 export async function handleSaveCabin(request, env) {

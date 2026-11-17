@@ -39,6 +39,9 @@
       <label class="a-field" style="margin:0;"><span>Cabin type</span>
         <select class="a-input" id="fType" style="min-width:140px;"><option value="">All</option></select>
       </label>
+      <label class="a-field" style="margin:0;display:none;" id="fEventWrap"><span>Event sign-up</span>
+        <select class="a-input" id="fEvent" style="min-width:200px;"><option value="">All cabins</option></select>
+      </label>
       <label class="a-field" style="margin:0;flex:1;min-width:160px;"><span>Search name / res # / cabin #</span>
         <input class="a-input" id="fSearch" type="search" placeholder="Search&hellip;">
       </label>
@@ -67,6 +70,7 @@
         <th data-sort="drifter" style="cursor:pointer;">Drifter <span class="sort-ind"></span></th>
         <th data-sort="tc" style="cursor:pointer;">TC <span class="sort-ind"></span></th>
         <th data-sort="notes" style="cursor:pointer;">Notes <span class="sort-ind"></span></th>
+        <th id="thEvt" hidden>Event sign-up</th>
         <th></th>
       </tr></thead>
       <tbody></tbody>
@@ -192,6 +196,29 @@
     return res.ok;
   }
 
+  // Event sign-ups: Dive Bar posts with a sign-up button. The column and the filter appear only
+  // when one exists. The label shown is the button text without its leading "Sign up for the".
+  var events = [];
+  function evtName(e) { return (e.label || e.title || '').replace(/^sign up for (the )?/i, ''); }
+  function evtCell(c) {
+    var s = c.signups || {};
+    if (c.status === 'available') return '';
+    return events.map(function (e) {
+      var g = s[e.id];
+      return g ? '<div title="' + esc(evtName(e)) + '"><span style="color:#1d7a3a;font-weight:700;">&#10003; ' + g + ' guest' + (g === 1 ? '' : 's') + '</span>' + (events.length > 1 ? '<br><span style="color:var(--a-soft);font-size:0.75rem;">' + esc(evtName(e)) + '</span>' : '') + '</div>'
+        : '<div style="color:var(--a-soft);" title="' + esc(evtName(e)) + '">&ndash;</div>';
+    }).join('');
+  }
+  function fillEventFilter() {
+    var cur = $('fEvent').value;
+    $('fEventWrap').style.display = events.length ? '' : 'none';
+    $('thEvt').hidden = !events.length;
+    $('fEvent').innerHTML = '<option value="">All cabins</option>' + events.map(function (e) {
+      return '<option value="in:' + e.id + '">Signed up: ' + esc(evtName(e)) + '</option><option value="out:' + e.id + '">Not signed up: ' + esc(evtName(e)) + '</option>';
+    }).join('');
+    if (cur) $('fEvent').value = cur;
+  }
+
   function render(cabins) {
     var tb = document.querySelector('#cabinsTable tbody');
     tb.innerHTML = '';
@@ -213,6 +240,7 @@
         '<td>' + esc(c.drifter) + '</td>' +
         '<td>' + (c.tc ? '<span style="background:var(--a-gold);color:var(--a-navy);font-size:0.68rem;font-weight:700;letter-spacing:0.04em;padding:0.15em 0.5em;border-radius:999px;">TC</span>' : '') + '</td>' +
         '<td style="font-size:0.85rem;color:var(--a-soft);max-width:280px;">' + esc(c.notes) + '</td>' +
+        (events.length ? '<td style="font-size:0.85rem;">' + evtCell(c) + '</td>' : '') +
         '<td style="white-space:nowrap;">' +
         (c.status === 'available' ? '<button class="a-btn" data-book="' + c.id + '" style="padding:0.35em 0.8em;">Add booking</button> ' : '') +
         '<button class="a-btn a-btn-ghost" data-edit="' + c.id + '" style="padding:0.35em 0.7em;">Edit</button>' +
@@ -269,6 +297,12 @@
       if (t && c.cabin_type !== t) return false;
       if (av === 'available' && c.status !== 'available') return false;
       if (av === 'booked' && c.status === 'available') return false;
+      var ev = $('fEvent').value;
+      if (ev) {
+        var want = ev.slice(0, 3) === 'in:', pid = ev.slice(3);
+        if (c.status === 'available') return false;
+        if (!!(c.signups && c.signups[pid]) !== want) return false;
+      }
       if (q && !((c.name || '') + ' ' + (c.res_number || '') + ' ' + (c.cabin_number || '') + ' ' + (c.notes || '')).toLowerCase().includes(q)) return false;
       return true;
     })));
@@ -288,7 +322,10 @@
     try {
       var res = await fetch('/api/admin/cabins');
       if (!res.ok) throw new Error('http ' + res.status);
-      allCabins = (await res.json()).cabins || [];
+      var body = await res.json();
+      allCabins = body.cabins || [];
+      events = body.events || [];
+      fillEventFilter();
       fillTypeFilter();
       applyFilters();
     } catch (e) {
@@ -498,6 +535,7 @@
   // Filters
   $('fDrifter').onchange = applyFilters;
   $('fType').onchange = applyFilters;
+  $('fEvent').onchange = applyFilters;
   $('fSearch').addEventListener('input', applyFilters);
 
   load();

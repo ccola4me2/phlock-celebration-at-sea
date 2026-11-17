@@ -160,6 +160,17 @@ export async function ensureSchema(db) {
       created_at INTEGER NOT NULL
     )`,
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_lounge_pirates_cabin_name ON lounge_pirates(cabin_id, first_lower)`,
+    // Event sign-ups: one row per cabin per Dive Bar post that carries a sign-up button.
+    `CREATE TABLE IF NOT EXISTS lounge_signups (
+      id TEXT PRIMARY KEY,
+      post_id TEXT NOT NULL,
+      cabin_id TEXT NOT NULL,
+      guests INTEGER NOT NULL,
+      note TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER
+    )`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_lounge_signups_post_cabin ON lounge_signups(post_id, cabin_id)`,
     `CREATE TABLE IF NOT EXISTS lounge_signins (
       id TEXT PRIMARY KEY,
       created_at INTEGER NOT NULL,
@@ -197,6 +208,7 @@ export async function ensureSchema(db) {
     // Dive Bar posts remember when they were emailed to subscribers.
     'ALTER TABLE lounge_posts ADD COLUMN emailed_at INTEGER',
     'ALTER TABLE lounge_posts ADD COLUMN image_url TEXT',
+    'ALTER TABLE lounge_posts ADD COLUMN signup_label TEXT',
     'ALTER TABLE lounge_pirates ADD COLUMN parts TEXT',
   ];
   for (const sql of migrations) {
@@ -554,6 +566,72 @@ export async function countPirates(db) {
   return (r && r.n) || 0;
 }
 
+// ---- event sign-ups (a Dive Bar post with a sign-up button) ----
+/** This cabin's sign-up for a post, if it has one. */
+export function getSignup(db, postId, cabinId) {
+  return db.prepare('SELECT * FROM lounge_signups WHERE post_id = ? AND cabin_id = ?').bind(postId, cabinId).first();
+}
+
+/** Save or change a cabin's sign-up: one row per cabin, the latest headcount and note stand. */
+export function saveSignup(db, s) {
+  return db
+    .prepare(
+      `INSERT INTO lounge_signups (id, post_id, cabin_id, guests, note, created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?)
+       ON CONFLICT(post_id, cabin_id) DO UPDATE SET guests = excluded.guests, note = excluded.note, updated_at = excluded.updated_at`
+    )
+    .bind(s.id, s.post_id, s.cabin_id, s.guests, s.note || '', s.now, s.now)
+    .run();
+}
+
+export function deleteSignup(db, postId, cabinId) {
+  return db.prepare('DELETE FROM lounge_signups WHERE post_id = ? AND cabin_id = ?').bind(postId, cabinId).run();
+}
+
+/** Everyone signed up for a post, joined to the cabin so the list is the reservation list. */
+export async function listSignups(db, postId) {
+  const rows = await db
+    .prepare(
+      `SELECT g.guests, g.note, g.created_at, g.updated_at, c.id AS cabin_id, c.name, c.res_number, c.cabin_number, c.cabin_type
+       FROM lounge_signups g JOIN cabins c ON c.id = g.cabin_id
+       WHERE g.post_id = ?
+       ORDER BY g.created_at ASC LIMIT 1000`
+    )
+    .bind(postId)
+    .all();
+  return rows.results || [];
+}
+
+/** Every published post with a sign-up button, newest first, and every sign-up on them: the Cabins page columns. */
+export async function listSignupEvents(db) {
+  const posts = await db
+    .prepare("SELECT id, title, signup_label FROM lounge_posts WHERE signup_label IS NOT NULL AND signup_label <> '' AND published = 1 ORDER BY post_date DESC, created_at DESC LIMIT 20")
+    .all();
+  const rows = await db.prepare('SELECT post_id, cabin_id, guests FROM lounge_signups LIMIT 5000').all();
+  return { events: posts.results || [], signups: rows.results || [] };
+}
+
+/** The posts this cabin has signed up for, as { postId: guests }, for the check mark on the card. */
+export async function cabinSignups(db, cabinId) {
+  const rows = await db.prepare('SELECT post_id, guests FROM lounge_signups WHERE cabin_id = ?').bind(cabinId).all();
+  const out = {};
+  for (const r of rows.results || []) out[r.post_id] = r.guests;
+  return out;
+}
+
+/** Cabins and guests signed up per post, for the admin posts table. */
+export async function signupTotals(db) {
+  const rows = await db
+    .prepare(
+      `SELECT g.post_id, COUNT(*) AS cabins, SUM(g.guests) AS guests
+       FROM lounge_signups g JOIN cabins c ON c.id = g.cabin_id GROUP BY g.post_id`
+    )
+    .all();
+  const out = {};
+  for (const r of rows.results || []) out[r.post_id] = { cabins: r.cabins, guests: r.guests };
+  return out;
+}
+
 // ---- cabin referral links (Bring a friend) ----
 // Every booked cabin gets one short link, parrotheadscruise.com/go/<lastname>-<cabin>, whose
 // target tags the visit utm_source=drifters, utm_medium=referral, utm_campaign=ref-<cabin id>.
@@ -621,7 +699,7 @@ export function bumpShortLink(db, code, ts) {
 
 // ---- Drifters Lounge content (one generic CRUD over four small tables) ----
 export const LOUNGE_TYPES = {
-  posts: { table: 'lounge_posts', cols: ['title', 'body', 'post_date', 'published', 'image_url'], order: 'post_date DESC, created_at DESC' },
+  posts: { table: 'lounge_posts', cols: ['title', 'body', 'post_date', 'published', 'image_url', 'signup_label'], order: 'post_date DESC, created_at DESC' },
   events: { table: 'lounge_events', cols: ['day', 'start_time', 'title', 'detail', 'day_label'], order: 'day ASC, start_time ASC, created_at ASC' },
   dates: { table: 'lounge_dates', cols: ['due_date', 'title', 'detail'], order: 'due_date ASC, created_at ASC' },
   links: { table: 'lounge_links', cols: ['title', 'note', 'url', 'sort_order'], order: 'sort_order ASC, created_at ASC' },

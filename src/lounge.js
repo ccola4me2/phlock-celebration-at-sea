@@ -8,7 +8,8 @@
 //   GET  /drifters              the Dive Bar, or the sign-in gate
 //   POST /drifters/login        last_name + res_number (form post)
 //   POST /drifters/logout
-//   GET  /drifters/post/<id>    one news post in full
+//   GET  /drifters/post/<id>    one news post in full (with a sign-up form when the post has a button)
+//   POST /drifters/signup       a signed-in cabin signs up for, changes or cancels an event post
 //   /api/admin/lounge...        the editor's API (admin only)
 //
 // Signed-in admins see the Dive Bar without a guest session, for previewing.
@@ -39,11 +40,19 @@ import {
   listReferralBoard,
   listPirates,
   countPirates,
+  getSignup,
+  saveSignup,
+  deleteSignup,
+  listSignups,
+  signupTotals,
+  cabinSignups,
 } from './db.js';
 import { christenPirate, previewPirate } from './pirates.js';
 import { json, parseCookies, randomToken, sha256Hex } from './util.js';
 
 const SITE = 'https://parrotheadscruise.com';
+// A sign-in can send the guest back to the one post they came for (a shared sign-up link).
+const POST_PATH = /^\/drifters\/post\/[A-Za-z0-9-]{1,60}$/;
 const COOKIE = 'phc_drifter';
 const SESSION_DAYS = 90;
 // A second, short-lived pass rides on the link after sign-in, for browsers that drop the cookie.
@@ -166,6 +175,20 @@ const CSS = `
   .lg-post p { color:var(--ink-soft); font-size:.95rem; margin:0 0 .9rem; }
   .lg-post a { margin-top:auto; font-weight:600; color:var(--navy-700); }
   .lg-post .pic { display:block; width:100%; height:150px; object-fit:contain; object-position:left center; margin:0 0 .8rem; border-radius:10px; background:#fff; padding:.5rem; box-sizing:border-box; }
+  .lg-post .pic.poster { height:240px; object-position:center; }
+  .lg-post .btn-signup { display:block; margin-top:auto; text-align:center; background:var(--gold); color:var(--navy-900); font-weight:700; padding:.7rem 1rem; border-radius:10px; text-decoration:none; }
+  .lg-post .btn-signup:hover { filter:brightness(1.06); }
+  .lg-post .btn-signup + a { margin-top:.6rem; text-align:center; }
+  .lg-signup { margin:2rem 0 0; border-left:5px solid var(--gold); }
+  .lg-signup .tag { font-size:.7rem; letter-spacing:.12em; text-transform:uppercase; font-weight:700; color:#8a6d1f; }
+  .lg-signup h2 { margin:.3rem 0 .3rem; font-size:1.3rem; }
+  .lg-signup .cab { margin:0 0 1rem; color:var(--ink-soft); font-size:.95rem; }
+  .lg-signup label { display:block; font-weight:600; font-size:.9rem; margin:.8rem 0 .3rem; }
+  .lg-signup select, .lg-signup input[type=text] { width:100%; box-sizing:border-box; padding:.7rem .8rem; font:inherit; border:1px solid #cdbf93; border-radius:8px; background:#fff; }
+  .lg-signup .row { display:flex; flex-wrap:wrap; gap:.7rem; align-items:center; margin-top:1rem; }
+  .lg-signup .btn-cancel { background:none; border:none; color:#8a3b2b; text-decoration:underline; cursor:pointer; font:inherit; padding:.4rem; }
+  .lg-signup .in { background:#e9f6ec; border:1px solid #a9d6b5; color:#1d5d33; border-radius:8px; padding:.7rem .9rem; margin:0 0 .8rem; font-weight:600; }
+  .lg-signup .msg { margin-top:.7rem; font-size:.92rem; } .lg-signup .msg.err { color:#a02a1c; }
   .lg-article .hero-pic { display:block; max-width:420px; width:100%; height:auto; margin:0 0 1.4rem; }
   .lg-day { display:grid; grid-template-columns:180px 1fr; gap:1.2rem; padding:1.1rem 0; border-bottom:1px solid rgba(255,255,255,.12); }
   .lg-day:last-child { border-bottom:none; }
@@ -293,7 +316,7 @@ function foot(who, pass) {
 }
 
 // ---- pages ----
-function gatePage(err, closed, inApp) {
+function gatePage(err, closed, inApp, next) {
   const tip = inApp && err !== 'cookies'
     ? '<div class="note">Opening this from the Facebook app? Sign-in works best in your regular browser: tap the <b>&#8942;</b> or <b>&#8230;</b> menu at the top and choose <b>Open in Safari</b> (or Chrome).</div>'
     : '';
@@ -314,6 +337,7 @@ function gatePage(err, closed, inApp) {
   <p>Dive in with your last name and reservation number for all the details: schedule, events, news and deadlines.</p>
   ${tip}${notice}
   <form method="post" action="/drifters/login" ${closed ? 'hidden' : ''}>
+    ${next && POST_PATH.test(next) ? `<input type="hidden" name="next" value="${esc(next)}">` : ''}
     <label for="ln">Last name</label><input id="ln" name="last_name" autocomplete="family-name" autocapitalize="words" autocorrect="off" spellcheck="false" enterkeyhint="next" required>
     <label for="rn">Reservation number</label><input id="rn" name="res_number" inputmode="numeric" pattern="[0-9 ]*" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" required>
     <button class="btn btn-gold" type="submit">Dive In</button>
@@ -480,7 +504,7 @@ function loungePage(who, settings, posts, events, dates, links, pass, extra) {
     : `<div class="lg-pinned"><span class="tag">Welcome</span><h3>You're in.</h3><p>News, the schedule and every deadline for our sailing live here. Check back often.</p></div>`;
 
   const postCards = posts.length
-    ? posts.map((p) => `<div class="card lg-post">${p.image_url ? `<img class="pic" src="${esc(p.image_url)}" alt="" loading="lazy">` : ''}<span class="date">${fmtDate(p.post_date)}</span><h3>${esc(p.title)}</h3><p>${esc(excerpt(p.body))}</p><a href="/drifters/post/${esc(p.id)}${sfx}">Read more &rarr;</a></div>`).join('')
+    ? posts.map((p) => `<div class="card lg-post">${p.image_url ? `<img class="pic${p.signup_label ? ' poster' : ''}" src="${esc(p.image_url)}" alt="" loading="lazy">` : ''}<span class="date">${fmtDate(p.post_date)}</span><h3>${esc(p.title)}</h3><p>${esc(excerpt(p.body))}</p>${p.signup_label ? `<a class="btn-signup" href="/drifters/post/${esc(p.id)}${sfx}#signup">${esc(p.signup_label)}${extra && extra.signed && extra.signed[p.id] ? ' &#10003;' : ''}</a>` : ''}<a href="/drifters/post/${esc(p.id)}${sfx}">Read more &rarr;</a></div>`).join('')
     : '<p class="lg-empty">No news yet. Watch this space.</p>';
 
   const byDay = new Map();
@@ -535,7 +559,49 @@ ${pirateSection((extra && extra.crew) || [], settings, extra, pass)}
 ${crewCards()}` + foot(who, pass);
 }
 
-function postPage(who, post, pass) {
+// The sign-up form under a post that has a button. A guest signs up their own cabin (the one
+// they signed in with), so every sign-up is tied to a reservation; an admin previewing sees the
+// running count instead. `signup` is this cabin's saved row, if any.
+function signupBlock(post, extra, pass) {
+  if (!post.signup_label) return '';
+  const e = extra || {};
+  if (e.admin && !e.cabin) {
+    const t = e.totals || { cabins: 0, guests: 0 };
+    return `<section id="signup" class="card lg-signup"><span class="tag">Sign-up</span><h2>${esc(post.signup_label)}</h2><p class="cab">Admin preview. Guests see a form here that signs up their own cabin. So far: <b>${t.cabins || 0}</b> cabin${t.cabins === 1 ? '' : 's'}, <b>${t.guests || 0}</b> guest${t.guests === 1 ? '' : 's'}. The full list is on the admin Dive Bar page.</p></section>`;
+  }
+  if (!e.cabin) return '';
+  const su = e.signup;
+  const opts = [1, 2, 3, 4, 5, 6].map((n) => `<option value="${n}"${su && su.guests === n ? ' selected' : ''}>${n}</option>`).join('');
+  const who = `${e.cabin.cabin_number ? 'Cabin ' + esc(e.cabin.cabin_number) + ' &middot; ' : ''}${esc(e.cabin.name || '')}`;
+  return `<section id="signup" class="card lg-signup">
+  <span class="tag">Sign-up</span>
+  <h2>${esc(post.signup_label)}</h2>
+  <p class="cab">Signing up for ${who}</p>
+  <div class="in" id="su-in"${su ? '' : ' hidden'}>You're signed up: <span id="su-n">${su ? su.guests : ''}</span> guest<span id="su-s">${su && su.guests === 1 ? '' : 's'}</span> from your cabin. Change it below any time.</div>
+  <label for="su-g">How many from your cabin are coming?</label>
+  <select id="su-g">${opts}</select>
+  <label for="su-note">Anything we should know? (optional)</label>
+  <input type="text" id="su-note" maxlength="200" value="${esc(su ? su.note : '')}" placeholder="Names, allergies, questions">
+  <div class="row"><button class="btn btn-gold" id="su-go" type="button">${su ? 'Update my sign-up' : 'Count our cabin in'}</button><button class="btn-cancel" id="su-no" type="button"${su ? '' : ' hidden'}>Cancel our sign-up</button></div>
+  <div class="msg" id="su-msg" role="status" hidden></div>
+</section>
+<script>(function(){var PASS=${JSON.stringify(pass || '')},POST=${JSON.stringify(post.id)};
+var $=function(i){return document.getElementById(i);},busy=false;
+function msg(t,bad){var m=$('su-msg');m.textContent=t;m.className='msg'+(bad?' err':'');m.hidden=false;}
+function send(g){if(busy)return;busy=true;$('su-go').disabled=true;
+fetch('/drifters/signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({post:POST,guests:g,note:$('su-note').value,s:PASS})})
+.then(function(r){return r.json().then(function(d){return {ok:r.ok,d:d};});})
+.then(function(x){if(!x.ok){msg(x.d&&x.d.error==='off'?'Sign-up is closed for this event.':'Sorry, that did not save. Please try again, or text Lori, Dawn or Brent.',true);return;}
+var n=x.d.guests||0;$('su-in').hidden=!n;$('su-n').textContent=n;$('su-s').textContent=n===1?'':'s';$('su-no').hidden=!n;$('su-go').textContent=n?'Update my sign-up':'Count our cabin in';
+msg(n?'Saved. See you there!':'Your sign-up was cancelled.',false);})
+.catch(function(){msg('Sorry, that did not save. Please try again.',true);})
+.then(function(){busy=false;$('su-go').disabled=false;});}
+$('su-go').onclick=function(){send(parseInt($('su-g').value,10)||1);};
+$('su-no').onclick=function(){if(confirm('Cancel the sign-up for this cabin?'))send(0);};
+})();</script>`;
+}
+
+function postPage(who, post, pass, extra) {
   const sfx = pass ? `?s=${encodeURIComponent(pass)}` : '';
   return head(post.title) + `
 <section><div class="container lg-article">
@@ -544,6 +610,7 @@ function postPage(who, post, pass) {
   <h1 style="margin:.3rem 0 1.2rem;">${esc(post.title)}</h1>
   ${post.image_url ? `<img class="hero-pic" src="${esc(post.image_url)}" alt="">` : ''}
   <div class="body">${richText(post.body) || '<p class="lg-empty">This post has no text yet.</p>'}</div>
+  ${signupBlock(post, extra, pass)}
 </div></section>` + foot(who, pass);
 }
 
@@ -577,6 +644,8 @@ export async function handleLounge(request, env, url) {
     } catch {
       return redirect('/drifters?err=missing');
     }
+    const nextIn = clip(form.get('next'), 90);
+    const home = POST_PATH.test(nextIn) ? nextIn : '/drifters';
     const nameIn = clip(form.get('last_name'), 80);
     const resIn = clip(form.get('res_number'), 40);
     const raw = nameIn.toLowerCase().replace(/[^a-z' \-]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -599,7 +668,7 @@ export async function handleLounge(request, env, url) {
     };
     if (!raw || !res) {
       await log('missing');
-      return redirect('/drifters?err=missing');
+      return redirect(`${home}?err=missing`);
     }
     // People type "Jim Dunn" or "Dunn, James" in a box labelled last name. Try
     // the whole entry first, then each word (last word first), so any name on
@@ -616,7 +685,7 @@ export async function handleLounge(request, env, url) {
     }
     if (!cabin) {
       await log('nomatch');
-      return redirect('/drifters?err=nomatch');
+      return redirect(`${home}?err=nomatch`);
     }
     await log('ok');
     const token = randomToken(32);
@@ -638,9 +707,31 @@ export async function handleLounge(request, env, url) {
     });
     // The pass on the link gets a cookie-blocking browser in; a browser that kept
     // the cookie is sent straight to the clean address on arrival.
-    return redirect(`/drifters?welcome=1&s=${pass}`, {
+    return redirect(`${home}?welcome=1&s=${pass}${home === '/drifters' ? '' : '#signup'}`, {
       'Set-Cookie': `${COOKIE}=${token}; Path=/; Max-Age=${SESSION_DAYS * 86400}; SameSite=Lax; Secure; HttpOnly`,
     });
+  }
+
+  // Event sign-up: the signed-in cabin says how many are coming (0 cancels). One row per cabin and
+  // post, tied to the reservation. Admins previewing have no cabin and cannot sign anyone up.
+  if (path === '/drifters/signup' && method === 'POST') {
+    let body = {};
+    try { body = await request.json(); } catch { return json({ error: 'bad_request' }, 400); }
+    const passed = clip(body.s, 80) || clip(url.searchParams.get('s'), 80);
+    const who = await viewer(request, env, new URL(`/drifters?s=${encodeURIComponent(passed)}`, SITE));
+    if (!who || !who.cabin_id) return json({ error: 'unauthorized' }, 401);
+    const post = await getLoungeRow(env.DB, 'posts', clip(body.post, 60));
+    if (!post || !post.published || !post.signup_label) return json({ error: 'off' }, 404);
+    const cabin = await getCabin(env.DB, who.cabin_id);
+    if (!cabin) return json({ error: 'unauthorized' }, 401);
+    const guests = Math.floor(Number(body.guests));
+    if (!(guests >= 0 && guests <= 6)) return json({ error: 'bad_request' }, 400);
+    if (guests === 0) {
+      await deleteSignup(env.DB, post.id, cabin.id);
+      return json({ ok: true, guests: 0 });
+    }
+    await saveSignup(env.DB, { id: crypto.randomUUID(), post_id: post.id, cabin_id: cabin.id, guests, note: clip(body.note, 200), now: Date.now() });
+    return json({ ok: true, guests });
   }
 
   if (path === '/drifters/email' && method === 'POST') {
@@ -706,10 +797,22 @@ export async function handleLounge(request, env, url) {
 
   const postMatch = /^\/drifters\/post\/([A-Za-z0-9-]{1,60})$/.exec(path);
   if (postMatch) {
-    if (!who || closed) return redirect('/drifters');
+    if (!who || closed) {
+      // Someone arriving from a shared sign-up link: show the sign-in, then bring them back here.
+      if (closed) return redirect('/drifters');
+      const inApp = /FBAN|FBAV|FB_IAB|Instagram|Messenger/i.test(request.headers.get('User-Agent') || '');
+      const err = url.searchParams.get('welcome') === '1' ? 'cookies' : url.searchParams.get('err') || '';
+      return html(gatePage(err, false, inApp, path));
+    }
     const post = await getLoungeRow(env.DB, 'posts', postMatch[1]);
     if (!post || (!post.published && !who.admin)) return html(head('Not found') + `<section><div class="container"><p>That post isn't available. <a href="/drifters${sfx}">Back to the Dive Bar</a></p></div></section>` + foot(who.name, pass), 404);
-    return html(postPage(who.name, post, pass));
+    let extra = null;
+    if (post.signup_label) {
+      const cabin = who.cabin_id ? await getCabin(env.DB, who.cabin_id) : null;
+      const totals = who.admin && !cabin ? (await signupTotals(env.DB))[post.id] : null;
+      extra = { admin: !!who.admin, cabin, totals, signup: cabin ? await getSignup(env.DB, post.id, cabin.id) : null };
+    }
+    return html(postPage(who.name, post, pass, extra));
   }
 
   if (path !== '/drifters') return redirect('/drifters');
@@ -740,7 +843,11 @@ export async function handleLounge(request, env, url) {
   if (settings.pirate_on !== '0') {
     try { crew = await listPirates(env.DB, 8); } catch { /* the card still renders */ }
   }
-  const extra = { cabin, subs, admin: !!who.admin, sub: clip(url.searchParams.get('sub'), 8), refLink, board, crew };
+  let signed = {};
+  if (cabin) {
+    try { signed = await cabinSignups(env.DB, cabin.id); } catch { /* the card still renders */ }
+  }
+  const extra = { cabin, subs, admin: !!who.admin, sub: clip(url.searchParams.get('sub'), 8), refLink, board, crew, signed };
   return html(loungePage(who.name, settings, posts.filter((p) => p.published || who.admin), events, dates, links, pass, extra));
 }
 
@@ -762,7 +869,7 @@ function postEmailHtml(env, post, unsub) {
     <div style="font-size:16px;line-height:1.6;color:#22303d;">${richText(post.body).replace(/<p>/g, '<p style="margin:0 0 14px;">')}</div>
   </td></tr>
   <tr><td style="padding:4px 32px 30px;" align="center">
-    <a href="${SITE}/drifters" style="display:inline-block;background:#c9a545;color:#081627;text-decoration:none;font-weight:bold;font-size:16px;padding:13px 26px;border-radius:8px;">Open the Dive Bar</a>
+    <a href="${post.signup_label ? `${SITE}/drifters/post/${esc(post.id)}#signup` : `${SITE}/drifters`}" style="display:inline-block;background:#c9a545;color:#081627;text-decoration:none;font-weight:bold;font-size:16px;padding:13px 26px;border-radius:8px;">${post.signup_label ? esc(post.signup_label) : 'Open the Dive Bar'}</a>
   </td></tr>
   <tr><td style="background:#f5efe2;padding:16px 32px;font-size:12px;line-height:1.6;color:#55606c;text-align:center;">
     You asked for Dive Bar updates on parrotheadscruise.com. <a href="${unsub}" style="color:#123152;">Unsubscribe</a> any time.<br>
@@ -776,7 +883,7 @@ async function emailPost(env, post, subs) {
   if (!key) return { sent: 0, failed: subs.length, error: 'no_resend_key' };
   const from = env.MAIL_FROM || 'Parrothead Day Cruise <noreply@parrotheadscruise.com>';
   const replyTo = String(env.DRIP_REPLY_TO || env.LEAD_NOTIFY_EMAILS || '').split(',').map((s) => s.trim()).filter(Boolean);
-  const text = `${post.title}\n\n${String(post.body || '')}\n\nOpen the Dive Bar: ${SITE}/drifters`;
+  const text = `${post.title}\n\n${String(post.body || '')}\n\n${post.signup_label ? post.signup_label + ': ' + SITE + '/drifters/post/' + post.id + '#signup' : 'Open the Dive Bar: ' + SITE + '/drifters'}`;
   let sent = 0;
   let failed = 0;
   for (let i = 0; i < subs.length; i += 100) {
@@ -806,6 +913,7 @@ function cleanRow(type, b) {
     if (b.body !== undefined) row.body = clip(b.body, 20000);
     if (b.post_date !== undefined) row.post_date = parseYmd(b.post_date) ? clip(b.post_date, 10) : '';
     if (b.published !== undefined) row.published = b.published ? 1 : 0;
+    if (b.signup_label !== undefined) row.signup_label = clip(b.signup_label, 80);
     if (b.image_url !== undefined) {
       const u = clip(b.image_url, 500);
       row.image_url = /^(\/[^\s]*|https:\/\/[^\s]+)$/.test(u) ? u : '';
@@ -858,8 +966,21 @@ export async function handleLoungeAdmin(request, env, url) {
     return json({ subscribers: subs });
   }
 
+  if (path === '/api/admin/lounge/signups' && method === 'GET') {
+    const id = clip(url.searchParams.get('post'), 60);
+    const post = id && (await getLoungeRow(env.DB, 'posts', id));
+    if (!post) return json({ error: 'not_found' }, 404);
+    const rows = await listSignups(env.DB, id);
+    if (url.searchParams.get('format') === 'csv') {
+      const escCsv = (v) => { const s = String(v == null ? '' : v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+      const lines = ['cabin,reservation,name,guests,note,signed_up'].concat(rows.map((r) => [r.cabin_number, r.res_number, r.name, r.guests, r.note, new Date(r.created_at).toISOString()].map(escCsv).join(',')));
+      return new Response(lines.join('\n'), { headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="dive-bar-signups.csv"', 'Cache-Control': 'no-store' } });
+    }
+    return json({ post: { id: post.id, title: post.title }, signups: rows });
+  }
+
   if (path === '/api/admin/lounge' && method === 'GET') {
-    const [settings, posts, events, dates, links, referrals, pirateCount] = await Promise.all([
+    const [settings, posts, events, dates, links, referrals, pirateCount, signups] = await Promise.all([
       getLoungeSettings(env.DB),
       listLounge(env.DB, 'posts'),
       listLounge(env.DB, 'events'),
@@ -867,8 +988,9 @@ export async function handleLoungeAdmin(request, env, url) {
       listLounge(env.DB, 'links'),
       listReferralBoard(env.DB).catch(() => []),
       countPirates(env.DB).catch(() => 0),
+      signupTotals(env.DB).catch(() => ({})),
     ]);
-    return json({ settings, posts, events, dates, links, referrals, pirates: pirateCount });
+    return json({ settings, posts, events, dates, links, referrals, pirates: pirateCount, signups });
   }
 
   if (method !== 'POST') return json({ error: 'not_found' }, 404);

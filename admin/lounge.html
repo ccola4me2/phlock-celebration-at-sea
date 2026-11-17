@@ -55,6 +55,16 @@
     <p class="a-msg" id="sendMsg" hidden></p>
   </div>
 
+  <div class="a-card" id="suCard" style="margin-bottom:1.3rem;" hidden>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
+      <h2 style="margin:0;font-size:1.1rem;">Sign-ups: <span id="suTitle"></span> <span id="suCount" style="font-size:0.85rem;color:var(--a-soft);font-weight:400;"></span></h2>
+      <span><a class="a-btn a-btn-ghost" id="suCsv" href="#">Download CSV</a> <button class="a-btn a-btn-ghost" type="button" id="suClose">Close</button></span>
+    </div>
+    <p class="a-hint">One row per cabin, tied to the reservation the guest signed in with.</p>
+    <table class="a-table"><thead><tr><th>Cabin</th><th>Reservation</th><th>Name</th><th class="num">Guests</th><th>Note</th></tr></thead><tbody id="tb-su"></tbody></table>
+    <p class="a-hint" id="empty-su" hidden>Nobody has signed up yet.</p>
+  </div>
+
   <div class="a-card" style="margin-bottom:1.3rem;">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
       <h2 style="margin:0;font-size:1.1rem;">Email subscribers <span id="subCount" style="font-size:0.85rem;color:var(--a-soft);font-weight:400;"></span></h2>
@@ -135,9 +145,10 @@
       { k: 'title', l: 'Title', t: 'text', full: true },
       { k: 'post_date', l: 'Date', t: 'date' },
       { k: 'published', l: 'Published', t: 'checkbox', def: true },
+      { k: 'signup_label', l: 'Sign-up button (optional): leave blank for a plain post, or type the button text, e.g. Sign up for the Ocho Rios beach party. Guests sign up their own cabin.', t: 'text', full: true },
       { k: 'image_url', l: 'Picture (optional): a site image like /assets/img/cfc-logo-transparent.png, or a full https link', t: 'text', full: true },
       { k: 'body', l: 'Text (blank line between paragraphs; links become clickable)', t: 'textarea', full: true, rows: 10 } ],
-      row: function (p) { return [fmtDate(p.post_date), '<strong>' + esc(p.title) + '</strong>', p.published ? 'Published' : '<span style="color:var(--a-soft);">Draft</span>', p.published ? ((p.emailed_at ? '<span style="color:var(--a-soft);font-size:0.8rem;">Emailed ' + new Date(p.emailed_at).toLocaleDateString() + '</span><br>' : '') + '<button class="a-btn a-btn-ghost" data-send="' + p.id + '" style="padding:0.3em 0.6em;font-size:0.8rem;">' + (p.emailed_at ? 'Send again' : 'Email to subscribers') + '</button>') : '<span style="color:var(--a-soft);font-size:0.8rem;">Publish first</span>']; } },
+      row: function (p) { return [fmtDate(p.post_date), '<strong>' + esc(p.title) + '</strong>' + (p.signup_label ? '<br><span style="color:var(--a-soft);font-size:0.8rem;">Sign-up: ' + suCount(p.id) + '</span> <button class="a-btn a-btn-ghost" data-su="' + p.id + '" style="padding:0.2em 0.55em;font-size:0.78rem;">View list</button>' : ''), p.published ? 'Published' : '<span style="color:var(--a-soft);">Draft</span>', p.published ? ((p.emailed_at ? '<span style="color:var(--a-soft);font-size:0.8rem;">Emailed ' + new Date(p.emailed_at).toLocaleDateString() + '</span><br>' : '') + '<button class="a-btn a-btn-ghost" data-send="' + p.id + '" style="padding:0.3em 0.6em;font-size:0.8rem;">' + (p.emailed_at ? 'Send again' : 'Email to subscribers') + '</button>') : '<span style="color:var(--a-soft);font-size:0.8rem;">Publish first</span>']; } },
     events: { label: 'event', fields: [
       { k: 'day', l: 'Day', t: 'date' },
       { k: 'start_time', l: 'Start time', t: 'time' },
@@ -167,6 +178,26 @@
     var h = +m[1], ap = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; return h + ':' + m[2] + ' ' + ap;
   }
 
+  function suCount(id) {
+    var t = (data.signups || {})[id];
+    return t ? t.cabins + ' cabin' + (t.cabins === 1 ? '' : 's') + ', ' + t.guests + ' guest' + (t.guests === 1 ? '' : 's') : 'none yet';
+  }
+  async function showSignups(id) {
+    var res = await fetch('/api/admin/lounge/signups?post=' + encodeURIComponent(id));
+    var d = await res.json().catch(function () { return {}; });
+    var rows = d.signups || [], guests = rows.reduce(function (n, r) { return n + (r.guests || 0); }, 0);
+    $('suCard').hidden = false;
+    $('suTitle').textContent = d.post ? d.post.title : '';
+    $('suCount').textContent = '· ' + rows.length + ' cabin' + (rows.length === 1 ? '' : 's') + ', ' + guests + ' guest' + (guests === 1 ? '' : 's');
+    $('suCsv').href = '/api/admin/lounge/signups?format=csv&post=' + encodeURIComponent(id);
+    $('empty-su').hidden = rows.length > 0;
+    $('tb-su').innerHTML = rows.map(function (r) {
+      return '<tr><td>' + esc(r.cabin_number || '') + '</td><td>' + esc(r.res_number || '') + '</td><td>' + esc(r.name || '') + '</td><td class="num">' + r.guests + '</td><td>' + esc(r.note || '') + '</td></tr>';
+    }).join('');
+    $('suCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+  $('suClose').onclick = function () { $('suCard').hidden = true; };
+
   function renderType(type) {
     var tb = $('tb-' + type), rows = data[type] || [];
     $('empty-' + type).hidden = rows.length > 0;
@@ -177,6 +208,7 @@
     tb.querySelectorAll('[data-edit]').forEach(function (b) {
       b.onclick = function () { var p = b.getAttribute('data-edit').split(':'); openEdit(p[0], data[p[0]].find(function (x) { return x.id === p[1]; })); };
     });
+    tb.querySelectorAll('[data-su]').forEach(function (b) { b.onclick = function () { showSignups(b.getAttribute('data-su')); }; });
     tb.querySelectorAll('[data-send]').forEach(function (b) {
       b.onclick = async function () {
         var id = b.getAttribute('data-send'), post = data.posts.find(function (x) { return x.id === id; });
