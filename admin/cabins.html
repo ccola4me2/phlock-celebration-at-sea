@@ -228,10 +228,14 @@
     $('cabinsEmpty').textContent = availView === 'available' ? 'No available cabins. Import your open inventory and mark it Available.'
       : availView === 'booked' ? 'No booked cabins match these filters.'
       : 'No cabins yet. Add one, or use Import to paste your list.';
-    var bookedAll = allCabins.filter(function (c) { return c.status !== 'available'; }).length;
-    var availAll = allCabins.length - bookedAll;
-    $('cabinCount').textContent = allCabins.length ? '· ' + bookedAll + ' booked · ' + availAll + ' available' : '';
-    $('tabAllN').textContent = allCabins.length; $('tabBookedN').textContent = bookedAll; $('tabAvailN').textContent = availAll;
+    // Anyone listed without a cabin number yet (for example a second cabin still TBD) stays on the
+    // list but is not counted until a cabin number is entered.
+    var counted = allCabins.filter(function (c) { return (c.cabin_number || '').trim(); });
+    var notCounted = allCabins.length - counted.length;
+    var bookedAll = counted.filter(function (c) { return c.status !== 'available'; }).length;
+    var availAll = counted.length - bookedAll;
+    $('cabinCount').textContent = allCabins.length ? '· ' + bookedAll + ' booked · ' + availAll + ' available' + (notCounted ? ' · ' + notCounted + ' not counted (no cabin #)' : '') : '';
+    $('tabAllN').textContent = counted.length; $('tabBookedN').textContent = bookedAll; $('tabAvailN').textContent = availAll;
     cabins.forEach(function (c) {
       var tr = document.createElement('tr');
       tr.innerHTML =
