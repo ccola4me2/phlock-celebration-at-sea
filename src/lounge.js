@@ -919,9 +919,9 @@ async function sendToSubscribers(env, subs, make) {
   return { sent, failed };
 }
 
-async function emailPost(env, post, subs) {
+async function emailPost(env, post, subs, test) {
   const text = `${post.title}\n\n${String(post.body || '')}\n\n${post.signup_label ? post.signup_label + ': ' + SITE + '/drifters/post/' + post.id + '#signup' : 'Open the Dive Bar: ' + SITE + '/drifters'}`;
-  return sendToSubscribers(env, subs, (s, unsub) => ({ subject: `Drifters Dive Bar: ${post.title}`, html: postEmailHtml(env, post, unsub), text }));
+  return sendToSubscribers(env, subs, (s, unsub) => ({ subject: `${test ? '[Test] ' : ''}Drifters Dive Bar: ${post.title}`, html: postEmailHtml(env, post, unsub), text }));
 }
 
 // A schedule entry, key date or document added to the Dive Bar: a short update email, one item,
@@ -967,10 +967,10 @@ function updateEmailHtml(env, u, unsub) {
 </table></td></tr></table></body></html>`;
 }
 
-async function emailUpdate(env, type, row, subs) {
+async function emailUpdate(env, type, row, subs, test) {
   const u = updateFor(type, row);
   const text = `${u.kicker}: ${u.title}\n${u.when}\n${u.detail ? '\n' + u.detail + '\n' : ''}\n${u.buttonLabel}: ${u.buttonUrl}`;
-  return sendToSubscribers(env, subs, (s, unsub) => ({ subject: `Drifters Dive Bar: ${u.title}`, html: updateEmailHtml(env, u, unsub), text }));
+  return sendToSubscribers(env, subs, (s, unsub) => ({ subject: `${test ? '[Test] ' : ''}Drifters Dive Bar: ${u.title}`, html: updateEmailHtml(env, u, unsub), text }));
 }
 
 // ---- admin API ----
@@ -1091,10 +1091,12 @@ export async function handleLoungeAdmin(request, env, url) {
     const post = id && (await getLoungeRow(env.DB, 'posts', id));
     if (!post) return json({ error: 'not_found' }, 404);
     if (!post.published) return json({ error: 'unpublished' }, 400);
-    const subs = await listSubscribers(env.DB);
+    // A test goes only to the signed-in admin's own address and never marks the post as emailed.
+    const test = !!body.test;
+    const subs = test ? [{ email: admin.email, token: 'test' }] : await listSubscribers(env.DB);
     if (!subs.length) return json({ ok: true, sent: 0, failed: 0 });
-    const r = await emailPost(env, post, subs);
-    if (r.sent) await setPostEmailed(env.DB, post.id, Date.now());
+    const r = await emailPost(env, post, subs, test);
+    if (r.sent && !test) await setPostEmailed(env.DB, post.id, Date.now());
     return json(Object.assign({ ok: true }, r));
   }
 
@@ -1106,9 +1108,10 @@ export async function handleLoungeAdmin(request, env, url) {
     if (!['events', 'dates', 'links'].includes(type)) return json({ error: 'bad_request' }, 400);
     const row = id && (await getLoungeRow(env.DB, type, id));
     if (!row) return json({ error: 'not_found' }, 404);
-    const subs = await listSubscribers(env.DB);
+    const test = !!body.test;
+    const subs = test ? [{ email: admin.email, token: 'test' }] : await listSubscribers(env.DB);
     if (!subs.length) return json({ ok: true, sent: 0, failed: 0 });
-    return json(Object.assign({ ok: true }, await emailUpdate(env, type, row, subs)));
+    return json(Object.assign({ ok: true, to: test ? admin.email : undefined }, await emailUpdate(env, type, row, subs, test)));
   }
 
   const m = /^\/api\/admin\/lounge\/(posts|events|dates|links)(?:\/(delete))?$/.exec(path);
