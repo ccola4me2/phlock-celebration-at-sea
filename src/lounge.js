@@ -200,6 +200,7 @@ const CSS = `
   .lg-ev div span { display:block; color:rgba(255,255,255,.55); font-size:.82rem; }
   .lg-ev .btn-ev { display:inline-block; margin-top:.35rem; background:var(--gold); color:var(--navy-900); font-weight:700; font-size:.7rem; line-height:1.2; letter-spacing:.02em; padding:.2rem .55rem; border-radius:5px; text-decoration:none; }
   .lg-ev .btn-ev:hover { filter:brightness(1.06); }
+  @media (max-width: 640px) { .lg-ev .btn-ev { display:block; width:100%; box-sizing:border-box; text-align:center; margin-top:.7rem; font-size:.95rem; line-height:1.2; padding:.8rem 1rem; border-radius:10px; } }
   .lg-dates { list-style:none; margin:0; padding:0; }
   .lg-dates li { display:flex; gap:1rem; align-items:center; padding:.8rem 0; border-bottom:1px solid var(--cream-dark); }
   .lg-dates .d { flex:none; width:64px; text-align:center; background:var(--navy-900); color:#fff; border-radius:10px; padding:.4rem 0; line-height:1.1; }
