@@ -198,7 +198,7 @@ const CSS = `
   .lg-ev time { flex:none; width:84px; color:#fff; font-weight:600; font-size:.9rem; }
   .lg-ev div { color:rgba(255,255,255,.85); font-size:.95rem; }
   .lg-ev div span { display:block; color:rgba(255,255,255,.55); font-size:.82rem; }
-  .lg-ev .btn-ev { display:inline-block; margin-top:.6rem; background:var(--gold); color:var(--navy-900); font-weight:700; font-size:.9rem; padding:.55rem 1rem; border-radius:8px; text-decoration:none; }
+  .lg-ev .btn-ev { display:inline-block; margin-top:.45rem; background:var(--gold); color:var(--navy-900); font-weight:700; font-size:.78rem; letter-spacing:.02em; padding:.32rem .75rem; border-radius:6px; text-decoration:none; }
   .lg-ev .btn-ev:hover { filter:brightness(1.06); }
   .lg-dates { list-style:none; margin:0; padding:0; }
   .lg-dates li { display:flex; gap:1rem; align-items:center; padding:.8rem 0; border-bottom:1px solid var(--cream-dark); }
