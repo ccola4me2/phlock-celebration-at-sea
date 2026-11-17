@@ -148,7 +148,7 @@
       { k: 'signup_label', l: 'Sign-up button (optional): leave blank for a plain post, or type the button text, e.g. Sign up for the Ocho Rios beach party. Guests sign up their own cabin.', t: 'text', full: true },
       { k: 'image_url', l: 'Picture (optional): a site image like /assets/img/cfc-logo-transparent.png, or a full https link', t: 'text', full: true },
       { k: 'body', l: 'Text (blank line between paragraphs; links become clickable)', t: 'textarea', full: true, rows: 10 } ],
-      row: function (p) { return [fmtDate(p.post_date), '<strong>' + esc(p.title) + '</strong>' + (p.signup_label ? '<br><span style="color:var(--a-soft);font-size:0.8rem;">Sign-up: ' + suCount(p.id) + '</span> <button class="a-btn a-btn-ghost" data-su="' + p.id + '" style="padding:0.2em 0.55em;font-size:0.78rem;">View list</button>' : ''), p.published ? 'Published' : '<span style="color:var(--a-soft);">Draft</span>', p.published ? ((p.emailed_at ? '<span style="color:var(--a-soft);font-size:0.8rem;">Emailed ' + new Date(p.emailed_at).toLocaleDateString() + '</span><br>' : '') + '<button class="a-btn a-btn-ghost" data-send="' + p.id + '" style="padding:0.3em 0.6em;font-size:0.8rem;">' + (p.emailed_at ? 'Send again' : 'Email to subscribers') + '</button>') : '<span style="color:var(--a-soft);font-size:0.8rem;">Publish first</span>']; } },
+      row: function (p) { return [fmtDate(p.post_date), '<strong>' + esc(p.title) + '</strong>' + (p.signup_label ? '<br><span style="color:var(--a-soft);font-size:0.8rem;">Sign-up: ' + suCount(p.id) + '</span> <button class="a-btn a-btn-ghost" data-su="' + p.id + '" style="padding:0.2em 0.55em;font-size:0.78rem;">View list</button>' : ''), p.published ? 'Published' : '<span style="color:var(--a-soft);">Draft</span>', p.published ? ((p.emailed_at ? '<span style="color:var(--a-soft);font-size:0.8rem;">Emailed ' + new Date(p.emailed_at).toLocaleDateString() + '</span><br>' : '') + '<button class="a-btn a-btn-ghost" data-send="' + p.id + '" style="padding:0.3em 0.6em;font-size:0.8rem;">' + (p.emailed_at ? 'Send again' : 'Email to subscribers') + '</button><br><button class="a-btn a-btn-ghost" data-test="posts:' + p.id + '" style="padding:0.3em 0.6em;font-size:0.8rem;margin-top:0.3rem;" title="Sends the email only to you">Test to me</button>') : '<span style="color:var(--a-soft);font-size:0.8rem;">Publish first</span>']; } },
     events: { label: 'event', fields: [
       { k: 'day', l: 'Day', t: 'date' },
       { k: 'start_time', l: 'Start time', t: 'time' },
@@ -182,12 +182,13 @@
 
   // Emailing subscribers about something on the Dive Bar. After a NEW item is saved the admin is
   // asked once; "Email" on a row (and "Email to subscribers" on a post) does it later.
-  async function sendEmail(type, id) {
+  async function sendEmail(type, id, test) {
     var m = $('pageMsg');
     var url = type === 'posts' ? '/api/admin/lounge/posts/send' : '/api/admin/lounge/announce';
-    var res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id, type: type }) });
+    var res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id, type: type, test: !!test }) });
     var d = await res.json().catch(function () { return {}; });
     m.hidden = false; m.className = 'a-msg ' + (res.ok && !d.failed ? 'ok' : 'err');
+    if (test) { m.textContent = res.ok && d.sent ? 'Test email sent to you. Check your inbox (and spam) in a minute ✓' : 'Could not send the test.'; window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
     m.textContent = res.ok ? 'Emailed ' + d.sent + ' subscriber' + (d.sent === 1 ? '' : 's') + (d.failed ? ', ' + d.failed + ' failed' : '') + (d.error === 'no_resend_key' ? ' (email is not configured)' : '') + ' ✓' : 'Could not send.';
     window.scrollTo({ top: 0, behavior: 'smooth' });
     load();
@@ -229,7 +230,7 @@
     tb.innerHTML = rows.map(function (r) {
       return '<tr>' + TYPES[type].row(r).map(function (c) { return '<td>' + c + '</td>'; }).join('') +
         '<td style="white-space:nowrap;"><button class="a-btn a-btn-ghost" data-edit="' + type + ':' + r.id + '" style="padding:0.35em 0.7em;">Edit</button>' +
-        (type !== 'posts' ? ' <button class="a-btn a-btn-ghost" data-announce="' + type + ':' + r.id + '" style="padding:0.35em 0.7em;">Email</button>' : '') + '</td></tr>';
+        (type !== 'posts' ? ' <button class="a-btn a-btn-ghost" data-announce="' + type + ':' + r.id + '" style="padding:0.35em 0.7em;">Email</button> <button class="a-btn a-btn-ghost" data-test="' + type + ':' + r.id + '" style="padding:0.35em 0.7em;" title="Sends the email only to you">Test to me</button>' : '') + '</td></tr>';
     }).join('');
     tb.querySelectorAll('[data-edit]').forEach(function (b) {
       b.onclick = function () { var p = b.getAttribute('data-edit').split(':'); openEdit(p[0], data[p[0]].find(function (x) { return x.id === p[1]; })); };
@@ -239,6 +240,9 @@
         var p = b.getAttribute('data-announce').split(':'), item = data[p[0]].find(function (x) { return x.id === p[1]; });
         askAndSend(p[0], p[1], item && item.title, false);
       };
+    });
+    tb.querySelectorAll('[data-test]').forEach(function (b) {
+      b.onclick = async function () { var p = b.getAttribute('data-test').split(':'); b.disabled = true; await sendEmail(p[0], p[1], true); b.disabled = false; };
     });
     tb.querySelectorAll('[data-su]').forEach(function (b) { b.onclick = function () { showSignups(b.getAttribute('data-su')); }; });
     tb.querySelectorAll('[data-send]').forEach(function (b) {
