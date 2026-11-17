@@ -213,6 +213,8 @@
     var cur = $('fEvent').value;
     $('fEventWrap').style.display = events.length ? '' : 'none';
     $('thEvt').hidden = !events.length;
+    // Name the event in the header (one event), or list them (several; each cell names its own).
+    $('thEvt').textContent = events.length === 1 ? 'Sign-up: ' + evtName(events[0]) : 'Event sign-ups';
     $('fEvent').innerHTML = '<option value="">All cabins</option>' + events.map(function (e) {
       return '<option value="in:' + e.id + '">Signed up: ' + esc(evtName(e)) + '</option><option value="out:' + e.id + '">Not signed up: ' + esc(evtName(e)) + '</option>';
     }).join('');
