@@ -192,6 +192,7 @@ export async function ensureSchema(db) {
   // harmlessly if the column is already there).
   const migrations = [
     'ALTER TABLE cabins ADD COLUMN tc INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE cabins ADD COLUMN email TEXT',
     // Drip campaign state on leads (see drip.js).
     'ALTER TABLE leads ADD COLUMN drip_status TEXT',
     'ALTER TABLE leads ADD COLUMN drip_stage INTEGER NOT NULL DEFAULT 0',
@@ -390,15 +391,15 @@ export async function listDripDue(db, now, limit = 50) {
 }
 
 // ---- cabins ----
-const CABIN_FIELDS = ['name', 'res_number', 'cabin_type', 'cabin_number', 'drifter', 'notes', 'tc', 'status'];
+const CABIN_FIELDS = ['name', 'email', 'res_number', 'cabin_type', 'cabin_number', 'drifter', 'notes', 'tc', 'status'];
 
 export function insertCabin(db, c) {
   return db
     .prepare(
-      `INSERT INTO cabins (id, created_at, name, res_number, cabin_type, cabin_number, drifter, notes, tc, status)
-       VALUES (?,?,?,?,?,?,?,?,?,?)`
+      `INSERT INTO cabins (id, created_at, name, email, res_number, cabin_type, cabin_number, drifter, notes, tc, status)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?)`
     )
-    .bind(c.id, c.created_at, c.name, c.res_number, c.cabin_type, c.cabin_number, c.drifter, c.notes, c.tc || 0, c.status || 'booked')
+    .bind(c.id, c.created_at, c.name, c.email || '', c.res_number, c.cabin_type, c.cabin_number, c.drifter, c.notes, c.tc || 0, c.status || 'booked')
     .run();
 }
 
@@ -409,9 +410,9 @@ export async function listCabins(db, opts = {}) {
   if (opts.cabin_type) { where.push('cabin_type = ?'); args.push(opts.cabin_type); }
   if (opts.status) { where.push('status = ?'); args.push(opts.status); }
   if (opts.q) {
-    where.push('(name LIKE ? OR res_number LIKE ? OR cabin_number LIKE ? OR notes LIKE ?)');
+    where.push('(name LIKE ? OR res_number LIKE ? OR cabin_number LIKE ? OR notes LIKE ? OR email LIKE ?)');
     const like = '%' + opts.q + '%';
-    args.push(like, like, like, like);
+    args.push(like, like, like, like, like);
   }
   const clause = where.length ? 'WHERE ' + where.join(' AND ') : '';
   const rows = await db

@@ -29,14 +29,25 @@ function truthy(v) {
 }
 
 // Defaults for a brand-new cabin row.
-const CABIN_DEFAULTS = { name: '', res_number: '', cabin_type: '', cabin_number: '', drifter: '', notes: '', tc: 0, status: 'booked' };
+const CABIN_DEFAULTS = { name: '', email: '', res_number: '', cabin_type: '', cabin_number: '', drifter: '', notes: '', tc: 0, status: 'booked' };
 
 // partial=true: only fields present in the body are returned, so an update
 // that sends {id, status} leaves name/notes/etc. alone instead of blanking them.
+// One or more addresses separated by commas, semicolons or spaces. Returns them lowercased and joined by
+// ", ", or null when any one of them is not a plausible address (so the save can refuse instead of
+// silently dropping what was typed).
+function cleanEmails(v) {
+  const parts = String(v == null ? '' : v).split(/[\s,;]+/).map((s) => s.trim().toLowerCase()).filter(Boolean);
+  if (!parts.length) return '';
+  for (const p of parts) if (p.length > 120 || !/^[^@\s<>]+@[^@\s<>]+\.[^@\s<>]+$/.test(p)) return null;
+  return [...new Set(parts)].slice(0, 4).join(', ');
+}
+
 function cabinFromBody(b, partial = false) {
   const has = (k) => !partial || b[k] !== undefined;
   const f = {};
   if (has('name')) f.name = clip(b.name, 200);
+  if (has('email')) f.email = cleanEmails(b.email);
   if (has('res_number')) f.res_number = clip(b.res_number, 40);
   if (has('cabin_type')) f.cabin_type = clip(b.cabin_type, 60);
   if (has('cabin_number')) f.cabin_number = clip(b.cabin_number, 20);
@@ -85,7 +96,7 @@ export async function handleListCabins(request, env, url) {
     events = [];
   }
   if (q.get('format') === 'csv') {
-    const cols = ['cabin_number', 'cabin_type', 'status', 'name', 'res_number', 'drifter', 'notes'];
+    const cols = ['cabin_number', 'cabin_type', 'status', 'name', 'email', 'res_number', 'drifter', 'notes'];
     const esc = (v) => {
       const s = String(v == null ? '' : v);
       return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
@@ -117,6 +128,7 @@ export async function handleSaveCabin(request, env) {
     return json({ error: 'bad_request' }, 400);
   }
   const id = clip(body.id, 60);
+  if (body.email !== undefined && cleanEmails(body.email) === null) return json({ error: 'That email address does not look right.' }, 400);
   if (id) {
     await updateCabin(env.DB, id, cabinFromBody(body, true));
     return json({ ok: true, id });
@@ -184,6 +196,7 @@ export async function handleBulkUpdateCabins(request, env) {
   if (nums.length > 500) return json({ error: 'too_many' }, 400);
   const f = cabinFromBody(body, true);
   delete f.name;
+  delete f.email;
   delete f.res_number;
   delete f.cabin_number;
   delete f.tc;

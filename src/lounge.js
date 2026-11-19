@@ -1009,6 +1009,7 @@ async function notifyRequest(env, post, cabin, picked, note, kind, opts) {
     const verb = kind === 'cancelled' ? 'Cancelled' : kind === 'changed' ? 'Changed' : 'New';
     const res = String(cabin.res_number || '').trim() || 'not on file';
     const names = String(cabin.name || '').trim() || '(no name)';
+    const guestEmail = String(cabin.email || '').trim();
     const subject = `${o.test ? '[Test] ' : ''}${verb} request: Res ${res}, ${names}`;
     const items = (picked || []).map((x) => `${x.qty} x ${x.label}${x.price ? ' (' + x.price + ')' : ''}`);
     const e = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -1016,15 +1017,16 @@ async function notifyRequest(env, post, cabin, picked, note, kind, opts) {
     const html = `<div style="font-family:Arial,sans-serif;max-width:560px;color:#1b2430;">
   <p style="margin:0 0 4px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#8a6d1f;">${e(verb)} request${o.test ? ' (test)' : ''} &middot; ${e(post.title)}</p>
   <h2 style="margin:0 0 4px;color:#081627;">Reservation ${e(res)}</h2>
-  <p style="margin:0 0 14px;font-size:16px;">${e(names)}</p>
+  <p style="margin:0 0 ${guestEmail ? '2' : '14'}px;font-size:16px;">${e(names)}</p>
+  ${guestEmail ? `<p style="margin:0 0 14px;font-size:14px;color:#445;">${e(guestEmail)}</p>` : ''}
   <p style="margin:0 0 6px;">${e(intro)}</p>
   ${items.length ? `<ul style="margin:0 0 12px;padding-left:20px;font-size:15px;line-height:1.6;">${items.map((i) => `<li>${e(i)}</li>`).join('')}</ul>` : ''}
   ${note ? `<p style="margin:0 0 12px;"><b>Their note:</b> ${e(note)}</p>` : ''}
   <p style="margin:16px 0;"><a href="${SITE}/admin/lounge" style="background:#c9a545;color:#081627;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:bold;">Open the list in Admin</a></p>
   <p style="font-size:12px;color:#667;">Sent automatically when a guest uses the form on the Dive Bar. Sale prices are the cruise line's; confirm the booking with the guest.</p>
 </div>`;
-    const text = `${verb} request${o.test ? ' (test)' : ''}: ${post.title}\nReservation ${res}\n${names}\n\n${intro}\n${items.map((i) => '- ' + i).join('\n')}${note ? '\nTheir note: ' + note : ''}\n\n${SITE}/admin/lounge`;
-    const r = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to, subject, html, text }) });
+    const text = `${verb} request${o.test ? ' (test)' : ''}: ${post.title}\nReservation ${res}\n${names}${guestEmail ? '\n' + guestEmail : ''}\n\n${intro}\n${items.map((i) => '- ' + i).join('\n')}${note ? '\nTheir note: ' + note : ''}\n\n${SITE}/admin/lounge`;
+    const r = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ from, to, subject, html, text }, guestEmail && !o.test ? { reply_to: guestEmail.split(/\s*,\s*/) } : {})) });
     return r.ok;
   } catch {
     return false;

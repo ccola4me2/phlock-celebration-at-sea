@@ -67,6 +67,7 @@
         <th data-sort="cabin_number" style="cursor:pointer;">Cabin&nbsp;# <span class="sort-ind"></span></th>
         <th data-sort="cabin_type" style="cursor:pointer;">Type <span class="sort-ind"></span></th>
         <th data-sort="res_number" style="cursor:pointer;">Res&nbsp;# <span class="sort-ind"></span></th>
+        <th data-sort="email" style="cursor:pointer;">Email <span class="sort-ind"></span></th>
         <th data-sort="drifter" style="cursor:pointer;">Drifter <span class="sort-ind"></span></th>
         <th data-sort="tc" style="cursor:pointer;">TC <span class="sort-ind"></span></th>
         <th data-sort="notes" style="cursor:pointer;">Notes <span class="sort-ind"></span></th>
@@ -93,6 +94,7 @@
         <input class="a-input" id="e-cabin_type" placeholder="Type the new cabin type" style="margin-top:0.4rem;" hidden>
       </label>
       <label class="a-field"><span>Reservation #</span><input class="a-input" id="e-res_number"></label>
+      <label class="a-field"><span>Email (more than one is fine, separate with commas)</span><input class="a-input" id="e-email" type="text" inputmode="email" autocomplete="off" placeholder="guest@example.com"></label>
       <label class="a-field"><span>Drifter</span>
         <select class="a-input" id="e-drifter"><option value="">—</option><option value="Current">Current</option><option value="New">New</option></select>
       </label>
@@ -193,6 +195,11 @@
 
   async function api(path, body) {
     var res = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!res.ok) {
+      var d = {};
+      try { d = await res.json(); } catch (e) {}
+      alert(d.error && /\s/.test(d.error) ? d.error : 'That did not save. Please try again.');
+    }
     return res.ok;
   }
 
@@ -246,6 +253,7 @@
         '<td style="white-space:nowrap;">' + esc(c.cabin_number) + '</td>' +
         '<td>' + esc(c.cabin_type) + '</td>' +
         '<td>' + esc(c.res_number) + '</td>' +
+        '<td style="font-size:0.85rem;word-break:break-all;">' + esc(c.email) + '</td>' +
         '<td>' + esc(c.drifter) + '</td>' +
         '<td>' + (c.tc ? '<span style="background:var(--a-gold);color:var(--a-navy);font-size:0.68rem;font-weight:700;letter-spacing:0.04em;padding:0.15em 0.5em;border-radius:999px;">TC</span>' : '') + '</td>' +
         '<td style="font-size:0.85rem;color:var(--a-soft);max-width:280px;">' + esc(c.notes) + '</td>' +
@@ -312,7 +320,7 @@
         if (c.status === 'available') return false;
         if (!!(c.signups && c.signups[pid]) !== want) return false;
       }
-      if (q && !((c.name || '') + ' ' + (c.res_number || '') + ' ' + (c.cabin_number || '') + ' ' + (c.notes || '')).toLowerCase().includes(q)) return false;
+      if (q && !((c.name || '') + ' ' + (c.res_number || '') + ' ' + (c.email || '') + ' ' + (c.cabin_number || '') + ' ' + (c.notes || '')).toLowerCase().includes(q)) return false;
       return true;
     })));
     updateSortInd();
@@ -362,7 +370,7 @@
     c = c || {};
     $('editTitle').textContent = book ? 'Book Cabin ' + (c.cabin_number || '') : (c.id ? 'Edit Cabin' : 'Add Cabin');
     $('e-id').value = c.id || '';
-    ['name', 'cabin_number', 'cabin_type', 'res_number', 'drifter', 'notes'].forEach(function (k) { $('e-' + k).value = c[k] || ''; });
+    ['name', 'email', 'cabin_number', 'cabin_type', 'res_number', 'drifter', 'notes'].forEach(function (k) { $('e-' + k).value = c[k] || ''; });
     $('e-tc').checked = !!c.tc;
     fillEditTypes(c.cabin_type || '');
     $('e-status').value = book ? 'booked' : (c.status === 'available' ? 'available' : 'booked');
@@ -386,7 +394,7 @@
   $('editModal').addEventListener('click', function (e) { if (e.target === $('editModal')) $('editModal').style.display = 'none'; });
   $('saveBtn').onclick = async function () {
     var body = { id: $('e-id').value || undefined };
-    ['name', 'cabin_number', 'cabin_type', 'res_number', 'drifter', 'notes'].forEach(function (k) { body[k] = $('e-' + k).value; });
+    ['name', 'email', 'cabin_number', 'cabin_type', 'res_number', 'drifter', 'notes'].forEach(function (k) { body[k] = $('e-' + k).value; });
     body.tc = $('e-tc').checked ? 1 : 0;
     body.status = $('e-status').value;
     if (await api('/api/admin/cabins/save', body)) { $('editModal').style.display = 'none'; load(); }
