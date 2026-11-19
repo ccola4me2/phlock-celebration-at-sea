@@ -174,7 +174,7 @@ const CSS = `
   .lg-post h3 { margin:.35rem 0 .4rem; font-size:1.1rem; }
   .lg-post p { color:var(--ink-soft); font-size:.95rem; margin:0 0 .9rem; }
   .lg-post a { margin-top:auto; font-weight:600; color:var(--navy-700); }
-  .lg-post .pic { display:block; width:100%; height:150px; object-fit:contain; object-position:left center; margin:0 0 .8rem; border-radius:10px; background:#fff; padding:.5rem; box-sizing:border-box; }
+  .lg-post .pic { display:block; width:100%; height:150px; object-fit:contain; object-position:center; margin:0 0 .8rem; border-radius:10px; background:#fff; padding:.5rem; box-sizing:border-box; }
   .lg-post .pic.poster { height:240px; object-position:center; }
   .lg-post .btn-signup { display:block; margin-top:auto; text-align:center; background:var(--gold); color:var(--navy-900); font-weight:700; padding:.7rem 1rem; border-radius:10px; text-decoration:none; }
   .lg-post .btn-signup:hover { filter:brightness(1.06); }
