@@ -209,6 +209,9 @@ export async function ensureSchema(db) {
     'ALTER TABLE lounge_posts ADD COLUMN emailed_at INTEGER',
     'ALTER TABLE lounge_posts ADD COLUMN image_url TEXT',
     'ALTER TABLE lounge_posts ADD COLUMN signup_label TEXT',
+    // A sign-up post can offer choices (one per line: Label | Price | Detail | Picture); the guest picks a quantity of each.
+    'ALTER TABLE lounge_posts ADD COLUMN signup_options TEXT',
+    'ALTER TABLE lounge_signups ADD COLUMN choices TEXT',
     // A schedule entry can carry a button (e.g. Sign up) that links to a Dive Bar post or a page.
     'ALTER TABLE lounge_events ADD COLUMN link_label TEXT',
     'ALTER TABLE lounge_events ADD COLUMN link_url TEXT',
@@ -579,11 +582,11 @@ export function getSignup(db, postId, cabinId) {
 export function saveSignup(db, s) {
   return db
     .prepare(
-      `INSERT INTO lounge_signups (id, post_id, cabin_id, guests, note, created_at, updated_at)
-       VALUES (?,?,?,?,?,?,?)
-       ON CONFLICT(post_id, cabin_id) DO UPDATE SET guests = excluded.guests, note = excluded.note, updated_at = excluded.updated_at`
+      `INSERT INTO lounge_signups (id, post_id, cabin_id, guests, note, choices, created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?,?)
+       ON CONFLICT(post_id, cabin_id) DO UPDATE SET guests = excluded.guests, note = excluded.note, choices = excluded.choices, updated_at = excluded.updated_at`
     )
-    .bind(s.id, s.post_id, s.cabin_id, s.guests, s.note || '', s.now, s.now)
+    .bind(s.id, s.post_id, s.cabin_id, s.guests, s.note || '', s.choices || '', s.now, s.now)
     .run();
 }
 
@@ -595,7 +598,7 @@ export function deleteSignup(db, postId, cabinId) {
 export async function listSignups(db, postId) {
   const rows = await db
     .prepare(
-      `SELECT g.guests, g.note, g.created_at, g.updated_at, c.id AS cabin_id, c.name, c.res_number, c.cabin_number, c.cabin_type
+      `SELECT g.guests, g.note, g.choices, g.created_at, g.updated_at, c.id AS cabin_id, c.name, c.res_number, c.cabin_number, c.cabin_type
        FROM lounge_signups g JOIN cabins c ON c.id = g.cabin_id
        WHERE g.post_id = ?
        ORDER BY g.created_at ASC LIMIT 1000`
@@ -608,9 +611,9 @@ export async function listSignups(db, postId) {
 /** Every published post with a sign-up button, newest first, and every sign-up on them: the Cabins page columns. */
 export async function listSignupEvents(db) {
   const posts = await db
-    .prepare("SELECT id, title, signup_label FROM lounge_posts WHERE signup_label IS NOT NULL AND signup_label <> '' AND published = 1 ORDER BY post_date DESC, created_at DESC LIMIT 20")
+    .prepare("SELECT id, title, signup_label, signup_options FROM lounge_posts WHERE signup_label IS NOT NULL AND signup_label <> '' AND published = 1 ORDER BY post_date DESC, created_at DESC LIMIT 20")
     .all();
-  const rows = await db.prepare('SELECT post_id, cabin_id, guests FROM lounge_signups LIMIT 5000').all();
+  const rows = await db.prepare('SELECT post_id, cabin_id, guests, choices FROM lounge_signups LIMIT 5000').all();
   return { events: posts.results || [], signups: rows.results || [] };
 }
 
@@ -702,7 +705,7 @@ export function bumpShortLink(db, code, ts) {
 
 // ---- Drifters Lounge content (one generic CRUD over four small tables) ----
 export const LOUNGE_TYPES = {
-  posts: { table: 'lounge_posts', cols: ['title', 'body', 'post_date', 'published', 'image_url', 'signup_label'], order: 'post_date DESC, created_at DESC' },
+  posts: { table: 'lounge_posts', cols: ['title', 'body', 'post_date', 'published', 'image_url', 'signup_label', 'signup_options'], order: 'post_date DESC, created_at DESC' },
   events: { table: 'lounge_events', cols: ['day', 'start_time', 'title', 'detail', 'day_label', 'link_label', 'link_url'], order: 'day ASC, start_time ASC, created_at ASC' },
   dates: { table: 'lounge_dates', cols: ['due_date', 'title', 'detail'], order: 'due_date ASC, created_at ASC' },
   links: { table: 'lounge_links', cols: ['title', 'note', 'url', 'sort_order'], order: 'sort_order ASC, created_at ASC' },

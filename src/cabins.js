@@ -64,13 +64,23 @@ export async function handleListCabins(request, env, url) {
   let events = [];
   try {
     const su = await listSignupEvents(env.DB);
-    events = su.events.map((e) => ({ id: e.id, title: e.title, label: e.signup_label }));
+    events = su.events.map((e) => ({ id: e.id, title: e.title, label: e.signup_label, options: !!String(e.signup_options || '').trim() }));
     const by = new Map();
+    const detail = new Map();
     for (const r of su.signups) {
       if (!by.has(r.cabin_id)) by.set(r.cabin_id, {});
       by.get(r.cabin_id)[r.post_id] = r.guests;
+      // A choices sign-up (Black Friday add-ons) also carries what was asked for, as short text.
+      const txt = choicesText(r.choices);
+      if (txt) {
+        if (!detail.has(r.cabin_id)) detail.set(r.cabin_id, {});
+        detail.get(r.cabin_id)[r.post_id] = txt;
+      }
     }
-    for (const c of cabins) c.signups = by.get(c.id) || {};
+    for (const c of cabins) {
+      c.signups = by.get(c.id) || {};
+      c.signupItems = detail.get(c.id) || {};
+    }
   } catch {
     events = [];
   }
@@ -83,7 +93,7 @@ export async function handleListCabins(request, env, url) {
     // One extra column per sign-up event, holding the guest count (blank when not signed up).
     const lines = [cols.concat(events.map((e) => 'signup: ' + e.label)).map(esc).join(',')];
     for (const c of cabins) {
-      lines.push(cols.map((k) => esc(c[k])).concat(events.map((e) => esc((c.signups || {})[e.id] || ''))).join(','));
+      lines.push(cols.map((k) => esc(c[k])).concat(events.map((e) => esc((c.signupItems || {})[e.id] || (c.signups || {})[e.id] || ''))).join(','));
     }
     return new Response(lines.join('\n'), {
       headers: {
@@ -247,4 +257,14 @@ export async function handleImportCabins(request, env) {
     added++;
   }
   return json({ ok: true, added, skipped });
+}
+
+// A saved choices sign-up (JSON [{label, qty}]) as one line of text: "2 x Spa; 1 x Photo package".
+function choicesText(raw) {
+  try {
+    const a = JSON.parse(raw || '[]');
+    return Array.isArray(a) ? a.filter((x) => x && x.qty > 0).map((x) => x.qty + ' x ' + x.label).join('; ') : '';
+  } catch {
+    return '';
+  }
 }

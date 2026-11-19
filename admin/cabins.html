@@ -203,9 +203,12 @@
   function evtCell(c) {
     var s = c.signups || {};
     if (c.status === 'available') return '';
+    var items = c.signupItems || {};
     return events.map(function (e) {
       var g = s[e.id];
-      return g ? '<div title="' + esc(evtName(e)) + '"><span style="color:#1d7a3a;font-weight:700;">&#10003; ' + g + ' guest' + (g === 1 ? '' : 's') + '</span>' + (events.length > 1 ? '<br><span style="color:var(--a-soft);font-size:0.75rem;">' + esc(evtName(e)) + '</span>' : '') + '</div>'
+      var unit = e.options ? 'item' : 'guest';
+      var detail = items[e.id] ? '<br><span style="color:var(--a-soft);font-size:0.75rem;">' + esc(items[e.id]) + '</span>' : '';
+      return g ? '<div title="' + esc(evtName(e)) + '"><span style="color:#1d7a3a;font-weight:700;">&#10003; ' + g + ' ' + unit + (g === 1 ? '' : 's') + '</span>' + detail + (events.length > 1 ? '<br><span style="color:var(--a-soft);font-size:0.75rem;">' + esc(evtName(e)) + '</span>' : '') + '</div>'
         : '<div style="color:var(--a-soft);" title="' + esc(evtName(e)) + '">&ndash;</div>';
     }).join('');
   }

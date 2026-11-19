@@ -189,6 +189,16 @@ const CSS = `
   .lg-signup .btn-cancel { background:none; border:none; color:#8a3b2b; text-decoration:underline; cursor:pointer; font:inherit; padding:.4rem; }
   .lg-signup .in { background:#e9f6ec; border:1px solid #a9d6b5; color:#1d5d33; border-radius:8px; padding:.7rem .9rem; margin:0 0 .8rem; font-weight:600; }
   .lg-signup .msg { margin-top:.7rem; font-size:.92rem; } .lg-signup .msg.err { color:#a02a1c; }
+  .lg-opts { display:grid; gap:.7rem; margin:.5rem 0 .2rem; }
+  .lg-opt { display:flex; gap:.8rem; align-items:center; border:1px solid #cdbf93; border-radius:10px; background:#fff; padding:.5rem; }
+  .lg-opt img { width:104px; height:70px; object-fit:cover; border-radius:8px; flex:none; background:#eee; }
+  .lg-opt .t { flex:1; min-width:0; display:flex; flex-direction:column; gap:.15rem; }
+  .lg-opt .t b { font-size:.95rem; line-height:1.25; color:var(--navy-900); }
+  .lg-opt .t .p { font-weight:700; color:#1a3d6d; font-size:.95rem; }
+  .lg-opt .t .n { font-size:.82rem; color:var(--ink-soft); line-height:1.35; }
+  .lg-opt .qty { flex:none; display:flex; flex-direction:column; align-items:center; gap:.2rem; font-size:.7rem; letter-spacing:.08em; text-transform:uppercase; color:#8a6d1f; font-weight:700; }
+  .lg-signup .lg-opt select { width:68px; padding:.55rem .4rem; text-align:center; }
+  @media (max-width:520px) { .lg-opt { flex-wrap:wrap; gap:.5rem .7rem; } .lg-opt img { width:72px; height:52px; } .lg-opt .t { flex:1 1 0; min-width:0; } .lg-opt .qty { flex:1 1 100%; flex-direction:row; justify-content:space-between; align-items:center; border-top:1px solid #eee3c3; padding-top:.5rem; font-size:.75rem; } .lg-signup .lg-opt select { width:84px; } }
   .lg-article .hero-pic { display:block; max-width:420px; width:100%; height:auto; margin:0 0 1.4rem; }
   .lg-day { display:grid; grid-template-columns:180px 1fr; gap:1.2rem; padding:1.1rem 0; border-bottom:1px solid rgba(255,255,255,.12); }
   .lg-day:last-child { border-bottom:none; }
@@ -573,9 +583,71 @@ ${crewCards()}` + foot(who, pass);
 // The sign-up form under a post that has a button. A guest signs up their own cabin (the one
 // they signed in with), so every sign-up is tied to a reservation; an admin previewing sees the
 // running count instead. `signup` is this cabin's saved row, if any.
+// A sign-up post can offer choices: one per line, "Label | Price | Detail | Picture". The guest picks a
+// quantity of each, so one form takes drinks, excursions, spa and so on for their own cabin.
+function parseOptions(text) {
+  const seen = new Set();
+  const out = [];
+  for (const line of String(text || '').split('\n')) {
+    const p = line.split('|').map((s) => s.trim());
+    const label = (p[0] || '').slice(0, 80);
+    if (!label || seen.has(label)) continue;
+    seen.add(label);
+    out.push({ label, price: (p[1] || '').slice(0, 80), note: (p[2] || '').slice(0, 200), image: /^(\/[^\s]*|https:\/\/[^\s]+)$/.test(p[3] || '') ? p[3] : '' });
+    if (out.length >= 20) break;
+  }
+  return out;
+}
+
+function optionRows(opts, saved, live) {
+  return opts.map((o, i) => `<div class="lg-opt">${o.image ? `<img src="${esc(o.image)}" alt="" loading="lazy">` : ''}<div class="t"><b>${esc(o.label)}</b>${o.price ? `<span class="p">${esc(o.price)}</span>` : ''}${o.note ? `<span class="n">${esc(o.note)}</span>` : ''}</div>${live ? `<label class="qty">Qty<select class="oq" data-i="${i}" aria-label="Quantity: ${esc(o.label)}">${[0, 1, 2, 3, 4, 5, 6].map((n) => `<option value="${n}"${(saved[o.label] || 0) === n ? ' selected' : ''}>${n}</option>`).join('')}</select></label>` : ''}</div>`).join('');
+}
+
+function optionsBlock(post, opts, e, pass) {
+  if (e.admin && !e.cabin) {
+    const t = e.totals || { cabins: 0, guests: 0 };
+    return `<section id="signup" class="card lg-signup"><span class="tag">Request</span><h2>${esc(post.signup_label)}</h2><p class="cab">Admin preview. Guests see these choices, each with a quantity box, and the request is saved to their own cabin. So far: <b>${t.cabins || 0}</b> cabin${t.cabins === 1 ? '' : 's'}, <b>${t.guests || 0}</b> item${t.guests === 1 ? '' : 's'}. The full list is on the admin Dive Bar page.</p><div class="lg-opts">${optionRows(opts, {}, false)}</div></section>`;
+  }
+  if (!e.cabin) return '';
+  const su = e.signup;
+  const saved = {};
+  try { for (const x of JSON.parse((su && su.choices) || '[]')) if (x && x.label) saved[x.label] = x.qty; } catch { /* no saved choices */ }
+  const who = `${e.cabin.cabin_number ? 'Cabin ' + esc(e.cabin.cabin_number) + ' &middot; ' : ''}${esc(e.cabin.name || '')}${e.cabin.res_number ? ' &middot; Res ' + esc(e.cabin.res_number) : ''}`;
+  const labels = JSON.stringify(opts.map((o) => o.label)).replace(/</g, '\\u003c');
+  return `<section id="signup" class="card lg-signup">
+  <span class="tag">Request</span>
+  <h2>${esc(post.signup_label)}</h2>
+  <p class="cab">Adding to ${who}</p>
+  <div class="in" id="su-in"${su ? '' : ' hidden'}>Your request is in: <span id="su-n">${su ? su.guests : ''}</span> item<span id="su-s">${su && su.guests === 1 ? '' : 's'}</span> from your cabin. Change it below any time.</div>
+  <label>What would you like to add? Pick a quantity for each.</label>
+  <div class="lg-opts">${optionRows(opts, saved, true)}</div>
+  <label for="su-note">Anything we should know? (optional)</label>
+  <input type="text" id="su-note" maxlength="200" value="${esc(su ? su.note : '')}" placeholder="Names, ages, days, questions">
+  <div class="row"><button class="btn btn-gold" id="su-go" type="button">${su ? 'Update my request' : 'Send my request'}</button><button class="btn-cancel" id="su-no" type="button"${su ? '' : ' hidden'}>Cancel my request</button></div>
+  <div class="msg" id="su-msg" role="status" hidden></div>
+</section>
+<script>(function(){var PASS=${JSON.stringify(pass || '')},POST=${JSON.stringify(post.id)},LABELS=${labels};
+var $=function(i){return document.getElementById(i);},busy=false,saved=${su ? 'true' : 'false'};
+function msg(t,bad){var m=$('su-msg');m.textContent=t;m.className='msg'+(bad?' err':'');m.hidden=false;}
+function pick(){var o={},t=0,q=document.querySelectorAll('.oq');for(var i=0;i<q.length;i++){var n=parseInt(q[i].value,10)||0;o[LABELS[+q[i].getAttribute('data-i')]]=n;t+=n;}return {o:o,t:t};}
+function send(o){if(busy)return;busy=true;$('su-go').disabled=true;
+fetch('/drifters/signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({post:POST,choices:o,note:$('su-note').value,s:PASS})})
+.then(function(r){return r.json().then(function(d){return {ok:r.ok,d:d};});})
+.then(function(x){if(!x.ok){msg(x.d&&x.d.error==='off'?'Requests are closed for this offer.':'Sorry, that did not save. Please try again, or text Lori, Dawn or Brent.',true);return;}
+var n=x.d.guests||0;saved=n>0;$('su-in').hidden=!n;$('su-n').textContent=n;$('su-s').textContent=n===1?'':'s';$('su-no').hidden=!n;$('su-go').textContent=n?'Update my request':'Send my request';
+msg(n?'Got it. We will price this with the sale and confirm with you.':'Your request was cancelled.',false);})
+.catch(function(){msg('Sorry, that did not save. Please try again.',true);})
+.then(function(){busy=false;$('su-go').disabled=false;});}
+$('su-go').onclick=function(){var p=pick();if(!p.t){if(saved){if(confirm('Cancel the request for this cabin?'))send(p.o);}else msg('Choose at least one item first.',true);return;}send(p.o);};
+$('su-no').onclick=function(){if(confirm('Cancel the request for this cabin?')){var q=document.querySelectorAll('.oq');for(var i=0;i<q.length;i++)q[i].value='0';send(pick().o);}};
+})();</script>`;
+}
+
 function signupBlock(post, extra, pass) {
   if (!post.signup_label) return '';
   const e = extra || {};
+  const optList = parseOptions(post.signup_options);
+  if (optList.length) return optionsBlock(post, optList, e, pass);
   if (e.admin && !e.cabin) {
     const t = e.totals || { cabins: 0, guests: 0 };
     return `<section id="signup" class="card lg-signup"><span class="tag">Sign-up</span><h2>${esc(post.signup_label)}</h2><p class="cab">Admin preview. Guests see a form here that signs up their own cabin. So far: <b>${t.cabins || 0}</b> cabin${t.cabins === 1 ? '' : 's'}, <b>${t.guests || 0}</b> guest${t.guests === 1 ? '' : 's'}. The full list is on the admin Dive Bar page.</p></section>`;
@@ -735,6 +807,30 @@ export async function handleLounge(request, env, url) {
     if (!post || !post.published || !post.signup_label) return json({ error: 'off' }, 404);
     const cabin = await getCabin(env.DB, who.cabin_id);
     if (!cabin) return json({ error: 'unauthorized' }, 401);
+    // A post with choices takes a quantity of each ({ label: qty }); all zeros cancels. Anything that is
+    // not a listed label or a whole number 0 to 6 is a bad request, never a cancel.
+    const optList = parseOptions(post.signup_options);
+    if (optList.length) {
+      const ch = body.choices;
+      if (!ch || typeof ch !== 'object' || Array.isArray(ch)) return json({ error: 'bad_request' }, 400);
+      const known = new Set(optList.map((o) => o.label));
+      if (Object.keys(ch).some((k) => !known.has(k))) return json({ error: 'bad_request' }, 400);
+      const picked = [];
+      let total = 0;
+      for (const o of optList) {
+        const raw = ch[o.label];
+        if (raw === undefined) continue;
+        const q = typeof raw === 'number' || (typeof raw === 'string' && /^\d{1,2}$/.test(raw.trim())) ? Math.floor(Number(raw)) : NaN;
+        if (!(q >= 0 && q <= 6)) return json({ error: 'bad_request' }, 400);
+        if (q > 0) { picked.push({ label: o.label, price: o.price, qty: q }); total += q; }
+      }
+      if (total === 0) {
+        await deleteSignup(env.DB, post.id, cabin.id);
+        return json({ ok: true, guests: 0 });
+      }
+      await saveSignup(env.DB, { id: crypto.randomUUID(), post_id: post.id, cabin_id: cabin.id, guests: total, note: clip(body.note, 200), choices: JSON.stringify(picked), now: Date.now() });
+      return json({ ok: true, guests: total });
+    }
     // Only a real number cancels (0). Blank, null or text is a bad request, never a cancel.
     const rawGuests = body.guests;
     const guests = typeof rawGuests === 'number' || (typeof rawGuests === 'string' && /^\d{1,2}$/.test(rawGuests.trim())) ? Math.floor(Number(rawGuests)) : NaN;
@@ -983,6 +1079,7 @@ function cleanRow(type, b) {
     if (b.post_date !== undefined) row.post_date = parseYmd(b.post_date) ? clip(b.post_date, 10) : '';
     if (b.published !== undefined) row.published = b.published ? 1 : 0;
     if (b.signup_label !== undefined) row.signup_label = clip(b.signup_label, 80);
+    if (b.signup_options !== undefined) row.signup_options = clip(b.signup_options, 4000);
     if (b.image_url !== undefined) {
       const u = clip(b.image_url, 500);
       row.image_url = /^(\/[^\s]*|https:\/\/[^\s]+)$/.test(u) ? u : '';
@@ -1048,7 +1145,8 @@ export async function handleLoungeAdmin(request, env, url) {
     if (url.searchParams.get('format') === 'csv') {
       // A guest types the note, so a cell that starts like a spreadsheet formula is defused for Excel.
       const escCsv = (v) => { let s = String(v == null ? '' : v); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
-      const lines = ['cabin,reservation,name,guests,note,signed_up'].concat(rows.map((r) => [r.cabin_number, r.res_number, r.name, r.guests, r.note, new Date(r.created_at).toISOString()].map(escCsv).join(',')));
+      const choiceText = (raw) => { try { return JSON.parse(raw || '[]').map((x) => x.qty + ' x ' + x.label).join('; '); } catch { return ''; } };
+      const lines = ['cabin,reservation,name,guests,choices,note,signed_up'].concat(rows.map((r) => [r.cabin_number, r.res_number, r.name, r.guests, choiceText(r.choices), r.note, new Date(r.created_at).toISOString()].map(escCsv).join(',')));
       return new Response(lines.join('\n'), { headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="dive-bar-signups.csv"', 'Cache-Control': 'no-store' } });
     }
     return json({ post: { id: post.id, title: post.title }, signups: rows });

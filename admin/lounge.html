@@ -61,7 +61,7 @@
       <span><a class="a-btn a-btn-ghost" id="suCsv" href="#">Download CSV</a> <button class="a-btn a-btn-ghost" type="button" id="suClose">Close</button></span>
     </div>
     <p class="a-hint">One row per cabin, tied to the reservation the guest signed in with.</p>
-    <table class="a-table"><thead><tr><th>Cabin</th><th>Reservation</th><th>Name</th><th class="num">Guests</th><th>Note</th></tr></thead><tbody id="tb-su"></tbody></table>
+    <table class="a-table"><thead><tr><th>Cabin</th><th>Reservation</th><th>Name</th><th class="num" id="suHead">Guests</th><th>Asked for</th><th>Note</th></tr></thead><tbody id="tb-su"></tbody></table>
     <p class="a-hint" id="empty-su" hidden>Nobody has signed up yet.</p>
   </div>
 
@@ -146,6 +146,7 @@
       { k: 'post_date', l: 'Date', t: 'date' },
       { k: 'published', l: 'Published', t: 'checkbox', def: true },
       { k: 'signup_label', l: 'Sign-up button (optional): leave blank for a plain post, or type the button text, e.g. Sign up for the Ocho Rios beach party. Guests sign up their own cabin.', t: 'text', full: true },
+      { k: 'signup_options', l: 'Choices (optional): one per line as Name | Price | Detail | Picture path. With choices, guests pick a quantity of each instead of a headcount, e.g. Spa day | $90.00 per person | 50 minute massage | /assets/img/events/spa.jpg', t: 'textarea', full: true, rows: 7 },
       { k: 'image_url', l: 'Picture (optional): a site image like /assets/img/cfc-logo-transparent.png, or a full https link', t: 'text', full: true },
       { k: 'body', l: 'Text (blank line between paragraphs; links become clickable)', t: 'textarea', full: true, rows: 10 } ],
       row: function (p) { return [fmtDate(p.post_date), '<strong>' + esc(p.title) + '</strong>' + (p.signup_label ? '<br><span style="color:var(--a-soft);font-size:0.8rem;">Sign-up: ' + suCount(p.id) + '</span> <button class="a-btn a-btn-ghost" data-su="' + p.id + '" style="padding:0.2em 0.55em;font-size:0.78rem;">View list</button>' : ''), p.published ? 'Published' : '<span style="color:var(--a-soft);">Draft</span>', p.published ? ((p.emailed_at ? '<span style="color:var(--a-soft);font-size:0.8rem;">Emailed ' + new Date(p.emailed_at).toLocaleDateString() + '</span><br>' : '') + '<button class="a-btn a-btn-ghost" data-send="' + p.id + '" style="padding:0.3em 0.6em;font-size:0.8rem;">' + (p.emailed_at ? 'Send again' : 'Email to subscribers') + '</button><br><button class="a-btn a-btn-ghost" data-test="posts:' + p.id + '" style="padding:0.3em 0.6em;font-size:0.8rem;margin-top:0.3rem;" title="Sends the email only to you">Test to me</button>') : '<span style="color:var(--a-soft);font-size:0.8rem;">Publish first</span>']; } },
@@ -206,19 +207,26 @@
 
   function suCount(id) {
     var t = (data.signups || {})[id];
-    return t ? t.cabins + ' cabin' + (t.cabins === 1 ? '' : 's') + ', ' + t.guests + ' guest' + (t.guests === 1 ? '' : 's') : 'none yet';
+    var p = (data.posts || []).filter(function (x) { return x.id === id; })[0];
+    var unit = p && (p.signup_options || '').trim() ? 'item' : 'guest';
+    return t ? t.cabins + ' cabin' + (t.cabins === 1 ? '' : 's') + ', ' + t.guests + ' ' + unit + (t.guests === 1 ? '' : 's') : 'none yet';
+  }
+  function choiceLine(raw) {
+    try { return JSON.parse(raw || '[]').map(function (x) { return x.qty + ' x ' + x.label + (x.price ? ' (' + x.price + ')' : ''); }).join('; '); } catch (e) { return ''; }
   }
   async function showSignups(id) {
     var res = await fetch('/api/admin/lounge/signups?post=' + encodeURIComponent(id));
     var d = await res.json().catch(function () { return {}; });
     var rows = d.signups || [], guests = rows.reduce(function (n, r) { return n + (r.guests || 0); }, 0);
+    var hasChoices = rows.some(function (r) { return r.choices; });
     $('suCard').hidden = false;
     $('suTitle').textContent = d.post ? d.post.title : '';
-    $('suCount').textContent = '· ' + rows.length + ' cabin' + (rows.length === 1 ? '' : 's') + ', ' + guests + ' guest' + (guests === 1 ? '' : 's');
+    $('suCount').textContent = '· ' + rows.length + ' cabin' + (rows.length === 1 ? '' : 's') + ', ' + guests + (hasChoices ? ' item' : ' guest') + (guests === 1 ? '' : 's');
+    $('suHead').textContent = hasChoices ? 'Items' : 'Guests';
     $('suCsv').href = '/api/admin/lounge/signups?format=csv&post=' + encodeURIComponent(id);
     $('empty-su').hidden = rows.length > 0;
     $('tb-su').innerHTML = rows.map(function (r) {
-      return '<tr><td>' + esc(r.cabin_number || '') + '</td><td>' + esc(r.res_number || '') + '</td><td>' + esc(r.name || '') + '</td><td class="num">' + r.guests + '</td><td>' + esc(r.note || '') + '</td></tr>';
+      return '<tr><td>' + esc(r.cabin_number || '') + '</td><td>' + esc(r.res_number || '') + '</td><td>' + esc(r.name || '') + '</td><td class="num">' + r.guests + '</td><td>' + esc(choiceLine(r.choices)) + '</td><td>' + esc(r.note || '') + '</td></tr>';
     }).join('');
     $('suCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
