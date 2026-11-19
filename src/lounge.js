@@ -824,11 +824,15 @@ export async function handleLounge(request, env, url) {
         if (!(q >= 0 && q <= 6)) return json({ error: 'bad_request' }, 400);
         if (q > 0) { picked.push({ label: o.label, price: o.price, qty: q }); total += q; }
       }
+      const before = await getSignup(env.DB, post.id, cabin.id);
       if (total === 0) {
         await deleteSignup(env.DB, post.id, cabin.id);
+        if (before) await notifyRequest(env, post, cabin, [], '', 'cancelled');
         return json({ ok: true, guests: 0 });
       }
-      await saveSignup(env.DB, { id: crypto.randomUUID(), post_id: post.id, cabin_id: cabin.id, guests: total, note: clip(body.note, 200), choices: JSON.stringify(picked), now: Date.now() });
+      const note = clip(body.note, 200);
+      await saveSignup(env.DB, { id: crypto.randomUUID(), post_id: post.id, cabin_id: cabin.id, guests: total, note, choices: JSON.stringify(picked), now: Date.now() });
+      await notifyRequest(env, post, cabin, picked, note, before ? 'changed' : 'new');
       return json({ ok: true, guests: total });
     }
     // Only a real number cancels (0). Blank, null or text is a bad request, never a cancel.
@@ -989,6 +993,44 @@ function postEmailHtml(env, post, unsub) {
 
 // One send path for every Dive Bar email: Resend batches of 100, each message with its own
 // unsubscribe link. `make(sub, unsub)` returns { subject, html, text }.
+// Tell the people who run the sale that a cabin sent, changed or cancelled a choices request. It goes to
+// the same list as the website's new-inquiry alerts and leads with the reservation number, which is what
+// the cruise line's system is keyed on. Never throws: a mail hiccup must not lose the guest's request.
+async function notifyRequest(env, post, cabin, picked, note, kind, opts) {
+  try {
+    const o = opts || {};
+    // Test cabins used to check the form (reservation numbers starting 999) never alert the team.
+    if (!o.test && /^999/.test(String(cabin.res_number || '').trim())) return false;
+    const key = env.RESEND_API_KEY;
+    if (!key) return false;
+    const to = o.to || String(env.LEAD_NOTIFY_EMAILS || env.ADMIN_EMAILS || '').split(',').map((s) => s.trim()).filter(Boolean);
+    if (!to.length) return false;
+    const from = env.MAIL_FROM || 'Parrothead Day Cruise <noreply@parrotheadscruise.com>';
+    const verb = kind === 'cancelled' ? 'Cancelled' : kind === 'changed' ? 'Changed' : 'New';
+    const res = String(cabin.res_number || '').trim() || 'not on file';
+    const names = String(cabin.name || '').trim() || '(no name)';
+    const subject = `${o.test ? '[Test] ' : ''}${verb} request: Res ${res}, ${names}`;
+    const items = (picked || []).map((x) => `${x.qty} x ${x.label}${x.price ? ' (' + x.price + ')' : ''}`);
+    const e = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const intro = kind === 'cancelled' ? 'They cancelled their earlier request.' : kind === 'changed' ? 'They changed their request. This is the full list now:' : 'Here is what they asked for:';
+    const html = `<div style="font-family:Arial,sans-serif;max-width:560px;color:#1b2430;">
+  <p style="margin:0 0 4px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#8a6d1f;">${e(verb)} request${o.test ? ' (test)' : ''} &middot; ${e(post.title)}</p>
+  <h2 style="margin:0 0 4px;color:#081627;">Reservation ${e(res)}</h2>
+  <p style="margin:0 0 14px;font-size:16px;">${e(names)}</p>
+  <p style="margin:0 0 6px;">${e(intro)}</p>
+  ${items.length ? `<ul style="margin:0 0 12px;padding-left:20px;font-size:15px;line-height:1.6;">${items.map((i) => `<li>${e(i)}</li>`).join('')}</ul>` : ''}
+  ${note ? `<p style="margin:0 0 12px;"><b>Their note:</b> ${e(note)}</p>` : ''}
+  <p style="margin:16px 0;"><a href="${SITE}/admin/lounge" style="background:#c9a545;color:#081627;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:bold;">Open the list in Admin</a></p>
+  <p style="font-size:12px;color:#667;">Sent automatically when a guest uses the form on the Dive Bar. Sale prices are the cruise line's; confirm the booking with the guest.</p>
+</div>`;
+    const text = `${verb} request${o.test ? ' (test)' : ''}: ${post.title}\nReservation ${res}\n${names}\n\n${intro}\n${items.map((i) => '- ' + i).join('\n')}${note ? '\nTheir note: ' + note : ''}\n\n${SITE}/admin/lounge`;
+    const r = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to, subject, html, text }) });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
 async function sendToSubscribers(env, subs, make) {
   const key = env.RESEND_API_KEY;
   if (!key) return { sent: 0, failed: subs.length, error: 'no_resend_key' };
@@ -1182,6 +1224,18 @@ export async function handleLoungeAdmin(request, env, url) {
     if (body.referral_prize !== undefined) await setLoungeSetting(env.DB, 'referral_prize', clip(body.referral_prize, 300));
     if (body.pirate_on !== undefined) await setLoungeSetting(env.DB, 'pirate_on', body.pirate_on ? '1' : '0');
     return json({ ok: true, settings: await getLoungeSettings(env.DB) });
+  }
+
+  // Sends a sample "new request" alert to the signed-in admin only, so the wording can be checked.
+  if (path === '/api/admin/lounge/requests/test') {
+    const id = clip(body.id, 60);
+    const post = id && (await getLoungeRow(env.DB, 'posts', id));
+    if (!post) return json({ error: 'not_found' }, 404);
+    const opts = parseOptions(post.signup_options);
+    if (!opts.length) return json({ error: 'no_choices' }, 400);
+    const picked = [{ label: opts[0].label, price: opts[0].price, qty: 2 }, { label: opts[opts.length - 1].label, price: opts[opts.length - 1].price, qty: 1 }];
+    const ok = await notifyRequest(env, post, { res_number: '54385181', name: 'Brent & Lauren Beasley' }, picked, 'Sample note from a guest', 'new', { to: [admin.email], test: true });
+    return json({ ok, to: admin.email });
   }
 
   if (path === '/api/admin/lounge/posts/send') {
