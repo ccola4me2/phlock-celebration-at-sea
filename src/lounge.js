@@ -207,6 +207,7 @@ const CSS = `
   .lg-signup .lg-opt select { width:68px; padding:.55rem .4rem; text-align:center; }
   @media (max-width:520px) { .lg-opt { flex-wrap:wrap; gap:.5rem .7rem; } .lg-opt img { width:72px; height:52px; } .lg-opt .t { flex:1 1 0; min-width:0; } .lg-opt .qty { flex:1 1 100%; flex-direction:row; justify-content:space-between; align-items:center; border-top:1px solid #eee3c3; padding-top:.5rem; font-size:.75rem; } .lg-signup .lg-opt select { width:84px; } }
   .lg-article .hero-pic { display:block; max-width:420px; width:100%; height:auto; margin:0 0 1.4rem; }
+  .lg-article .hero-pic.poster { max-width:600px; margin:0 auto 1.8rem; border-radius:14px; box-shadow:0 10px 30px rgba(6,15,28,.22); }
   .lg-day { display:grid; grid-template-columns:180px 1fr; gap:1.2rem; padding:1.1rem 0; border-bottom:1px solid rgba(255,255,255,.12); }
   .lg-day:last-child { border-bottom:none; }
   .lg-day .when { font-family:var(--font-display); color:var(--gold-light); font-size:.95rem; line-height:1.3; }
@@ -707,7 +708,7 @@ function postPage(who, post, pass, extra) {
   <p><a href="/drifters${sfx}">&larr; Back to the Dive Bar</a></p>
   <span class="date">${fmtDate(post.post_date)}</span>
   <h1 style="margin:.3rem 0 1.2rem;">${esc(post.title)}</h1>
-  ${post.image_url ? `<img class="hero-pic" src="${esc(post.image_url)}" alt="">` : ''}
+  ${post.image_url ? `<img class="hero-pic${post.signup_label ? ' poster' : ''}" src="${esc(post.image_url)}" alt="">` : ''}
   <div class="body">${richText(post.body) || '<p class="lg-empty">This post has no text yet.</p>'}</div>
   ${signupBlock(post, extra, pass)}
 </div></section>` + foot(who, pass);
@@ -1003,7 +1004,7 @@ function postEmailHtml(env, post, unsub) {
   <tr><td style="padding:30px 32px 8px;">
     <div style="font-size:12px;letter-spacing:2px;color:#c9a545;text-transform:uppercase;font-weight:bold;">${esc(fmtDate(post.post_date))}</div>
     <h1 style="margin:6px 0 16px;font-size:22px;line-height:1.3;color:#081627;">${esc(post.title)}</h1>
-    ${post.image_url ? `<img src="${esc(/^https?:/.test(post.image_url) ? post.image_url : SITE + post.image_url)}" alt="" style="display:block;max-width:360px;width:100%;height:auto;margin:0 0 16px;">` : ''}
+    ${post.image_url ? `<img src="${esc(/^https?:/.test(post.image_url) ? post.image_url : SITE + post.image_url)}" alt="" style="${post.signup_label ? 'display:block;max-width:100%;width:100%;height:auto;margin:0 auto 18px;border-radius:10px;' : 'display:block;max-width:360px;width:100%;height:auto;margin:0 0 16px;'}">` : ''}
     <div style="font-size:16px;line-height:1.6;color:#22303d;">${richText(post.body).replace(/<p>/g, '<p style="margin:0 0 14px;">')}</div>
   </td></tr>
   <tr><td style="padding:4px 32px 30px;" align="center">
