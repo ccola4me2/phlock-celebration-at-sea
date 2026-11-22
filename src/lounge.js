@@ -186,7 +186,7 @@ const CSS = `
   .lg-signup h2 { margin:.3rem 0 .3rem; font-size:1.3rem; }
   .lg-signup .cab { margin:0 0 1rem; color:var(--ink-soft); font-size:.95rem; }
   .lg-signup label { display:block; font-weight:600; font-size:.9rem; margin:.8rem 0 .3rem; }
-  .lg-signup select, .lg-signup input[type=text] { width:100%; box-sizing:border-box; padding:.7rem .8rem; font:inherit; border:1px solid #cdbf93; border-radius:8px; background:#fff; }
+  .lg-signup select, .lg-signup input[type=text], .lg-signup textarea { width:100%; box-sizing:border-box; padding:.7rem .8rem; font:inherit; border:1px solid #cdbf93; border-radius:8px; background:#fff; }
   .lg-signup .row { display:flex; flex-wrap:wrap; gap:.7rem; align-items:center; margin-top:1rem; }
   .lg-signup .btn-cancel { background:none; border:none; color:#8a3b2b; text-decoration:underline; cursor:pointer; font:inherit; padding:.4rem; }
   .lg-signup .in { background:#e9f6ec; border:1px solid #a9d6b5; color:#1d5d33; border-radius:8px; padding:.7rem .9rem; margin:0 0 .8rem; font-weight:600; }
@@ -635,8 +635,8 @@ function optionsBlock(post, opts, e, pass) {
   <div class="in" id="su-in"${su ? '' : ' hidden'}>Your request is in: <span id="su-n">${su ? su.guests : ''}</span> item<span id="su-s">${su && su.guests === 1 ? '' : 's'}</span> from your cabin. Change it below any time.</div>
   <label>What would you like to add? Pick a quantity for each.</label>
   <div class="lg-opts">${optionRows(opts, saved, true)}</div>
-  <label for="su-note">Anything we should know? (optional)</label>
-  <input type="text" id="su-note" maxlength="200" value="${esc(su ? su.note : '')}" placeholder="Names, ages, days, questions">
+  <label for="su-note">${rel ? 'Anything we should know? Medical conditions, mobility needs, ages of children, or any questions (optional). Share only what the tour operator needs to plan.' : 'Anything we should know? (optional)'}</label>
+  <textarea id="su-note" rows="3" maxlength="500" placeholder="${rel ? 'Medical or mobility needs, ages, questions' : 'Names, ages, days, questions'}">${esc(su ? su.note : '')}</textarea>
   ${relBox}${rel ? '<label class="lg-agree" for="su-ok"><input type="checkbox" id="su-ok"><span>I have read the above and agree to it for myself and everyone I am signing up.</span></label>' : ''}
   <div class="row"><button class="btn btn-gold" id="su-go" type="button">${su ? 'Update my request' : 'Send my request'}</button><button class="btn-cancel" id="su-no" type="button"${su ? '' : ' hidden'}>Cancel my request</button></div>
   <div class="msg" id="su-msg" role="status" hidden></div>
@@ -846,7 +846,7 @@ export async function handleLounge(request, env, url) {
         if (before) { await notifyRequest(env, post, cabin, [], '', 'cancelled'); await confirmToGuest(env, post, cabin, [], '', 'cancelled'); }
         return json({ ok: true, guests: 0 });
       }
-      const note = clip(body.note, 200);
+      const note = clip(body.note, 500);
       // A post with a release takes no request unless the guest ticked the box; the time they agreed is kept.
       const needsRelease = !!String(post.signup_release || '').trim();
       if (needsRelease && body.agree !== true) return json({ error: 'agree' }, 400);
