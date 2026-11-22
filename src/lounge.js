@@ -708,7 +708,7 @@ function postPage(who, post, pass, extra) {
   <p><a href="/drifters${sfx}">&larr; Back to the Dive Bar</a></p>
   <span class="date">${fmtDate(post.post_date)}</span>
   <h1 style="margin:.3rem 0 1.2rem;">${esc(post.title)}</h1>
-  ${post.image_url ? `<img class="hero-pic${post.signup_label ? ' poster' : ''}" src="${esc(post.image_url)}" alt="">` : ''}
+  ${post.image_url ? `<img class="hero-pic${post.signup_label ? ' poster' : ''}" src="${esc(post.image_url)}" alt="${esc(post.image_alt || '')}">` : ''}
   <div class="body">${richText(post.body) || '<p class="lg-empty">This post has no text yet.</p>'}</div>
   ${signupBlock(post, extra, pass)}
 </div></section>` + foot(who, pass);
@@ -992,6 +992,13 @@ export async function handleLounge(request, env, url) {
 
 // ---- emailing a post to subscribers (Resend, batches of 100) ----
 function postEmailHtml(env, post, unsub) {
+  // A post with choices lists them (name, detail, price) so the offer reads without opening the Dive Bar,
+  // even when the email program blocks the picture.
+  const optList = parseOptions(post.signup_options);
+  const optHtml = optList.length
+    ? `<div style="margin:18px 0 4px;font-size:12px;letter-spacing:2px;color:#c9a545;text-transform:uppercase;font-weight:bold;">On offer</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 10px;border-top:1px solid #e3d9b8;">${optList.map((o) => `<tr><td valign="top" style="padding:10px 0;border-bottom:1px solid #e3d9b8;font-size:15px;line-height:1.4;color:#081627;"><b>${esc(o.label)}</b>${o.note ? `<br><span style="font-size:13px;color:#55606c;">${esc(o.note)}</span>` : ''}</td><td align="right" valign="top" width="150" style="padding:10px 0 10px 12px;border-bottom:1px solid #e3d9b8;font-size:15px;font-weight:bold;color:#1a3d6d;">${esc(o.price)}</td></tr>`).join('')}</table>`
+    : '';
   const postal = clip(env.DRIP_POSTAL_ADDRESS, 200);
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(post.title)}</title></head>
 <body style="margin:0;padding:0;background:#f5efe2;">
@@ -1004,8 +1011,9 @@ function postEmailHtml(env, post, unsub) {
   <tr><td style="padding:30px 32px 8px;">
     <div style="font-size:12px;letter-spacing:2px;color:#c9a545;text-transform:uppercase;font-weight:bold;">${esc(fmtDate(post.post_date))}</div>
     <h1 style="margin:6px 0 16px;font-size:22px;line-height:1.3;color:#081627;">${esc(post.title)}</h1>
-    ${post.image_url ? `<img src="${esc(/^https?:/.test(post.image_url) ? post.image_url : SITE + post.image_url)}" alt="" style="${post.signup_label ? 'display:block;max-width:100%;width:100%;height:auto;margin:0 auto 18px;border-radius:10px;' : 'display:block;max-width:360px;width:100%;height:auto;margin:0 0 16px;'}">` : ''}
+    ${post.image_url ? `<img src="${esc(/^https?:/.test(post.image_url) ? post.image_url : SITE + post.image_url)}" alt="${esc(post.image_alt || post.title)}" style="${post.signup_label ? 'display:block;max-width:100%;width:100%;height:auto;margin:0 auto 18px;border-radius:10px;' : 'display:block;max-width:360px;width:100%;height:auto;margin:0 0 16px;'}">` : ''}
     <div style="font-size:16px;line-height:1.6;color:#22303d;">${richText(post.body).replace(/<p>/g, '<p style="margin:0 0 14px;">')}</div>
+    ${optHtml}
   </td></tr>
   <tr><td style="padding:4px 32px 30px;" align="center">
     <a href="${post.signup_label ? `${SITE}/drifters/post/${esc(post.id)}#signup` : `${SITE}/drifters`}" style="display:inline-block;background:#c9a545;color:#081627;text-decoration:none;font-weight:bold;font-size:16px;padding:13px 26px;border-radius:8px;">${post.signup_label ? esc(post.signup_label) : 'Open the Dive Bar'}</a>
@@ -1148,7 +1156,8 @@ async function sendToSubscribers(env, subs, make) {
 }
 
 async function emailPost(env, post, subs, test) {
-  const text = `${post.title}\n\n${String(post.body || '')}\n\n${post.signup_label ? post.signup_label + ': ' + SITE + '/drifters/post/' + post.id + '#signup' : 'Open the Dive Bar: ' + SITE + '/drifters'}`;
+  const offer = parseOptions(post.signup_options).map((o) => `- ${o.label}${o.price ? ': ' + o.price : ''}${o.note ? ' (' + o.note + ')' : ''}`).join('\n');
+  const text = `${post.title}\n\n${String(post.body || '')}\n\n${offer ? 'On offer:\n' + offer + '\n\n' : ''}${post.signup_label ? post.signup_label + ': ' + SITE + '/drifters/post/' + post.id + '#signup' : 'Open the Dive Bar: ' + SITE + '/drifters'}`;
   return sendToSubscribers(env, subs, (s, unsub) => ({ subject: `${test ? '[Test] ' : ''}Drifters Dive Bar: ${post.title}`, html: postEmailHtml(env, post, unsub), text }));
 }
 
@@ -1213,6 +1222,7 @@ function cleanRow(type, b) {
     if (b.signup_label !== undefined) row.signup_label = clip(b.signup_label, 80);
     if (b.signup_options !== undefined) row.signup_options = clip(b.signup_options, 4000);
     if (b.signup_release !== undefined) row.signup_release = clip(b.signup_release, 8000);
+    if (b.image_alt !== undefined) row.image_alt = clip(b.image_alt, 300);
     if (b.signup_min !== undefined) { const n = parseInt(b.signup_min, 10); row.signup_min = n >= 1 && n <= 99 ? n : null; }
     if (b.image_url !== undefined) {
       const u = clip(b.image_url, 500);

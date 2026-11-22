@@ -222,6 +222,8 @@ export async function ensureSchema(db) {
     'ALTER TABLE lounge_posts ADD COLUMN signup_release TEXT',
     'ALTER TABLE lounge_posts ADD COLUMN signup_min INTEGER',
     'ALTER TABLE lounge_signups ADD COLUMN agreed_at INTEGER',
+    // What a post's picture says in words, shown where an email program blocks the picture.
+    'ALTER TABLE lounge_posts ADD COLUMN image_alt TEXT',
     // A schedule entry can carry a button (e.g. Sign up) that links to a Dive Bar post or a page.
     'ALTER TABLE lounge_events ADD COLUMN link_label TEXT',
     'ALTER TABLE lounge_events ADD COLUMN link_url TEXT',
@@ -715,7 +717,7 @@ export function bumpShortLink(db, code, ts) {
 
 // ---- Drifters Lounge content (one generic CRUD over four small tables) ----
 export const LOUNGE_TYPES = {
-  posts: { table: 'lounge_posts', cols: ['title', 'body', 'post_date', 'published', 'image_url', 'signup_label', 'signup_options', 'signup_release', 'signup_min'], order: 'post_date DESC, created_at DESC' },
+  posts: { table: 'lounge_posts', cols: ['title', 'body', 'post_date', 'published', 'image_url', 'signup_label', 'signup_options', 'signup_release', 'signup_min', 'image_alt'], order: 'post_date DESC, created_at DESC' },
   events: { table: 'lounge_events', cols: ['day', 'start_time', 'title', 'detail', 'day_label', 'link_label', 'link_url'], order: 'day ASC, start_time ASC, created_at ASC' },
   dates: { table: 'lounge_dates', cols: ['due_date', 'title', 'detail'], order: 'due_date ASC, created_at ASC' },
   links: { table: 'lounge_links', cols: ['title', 'note', 'url', 'sort_order'], order: 'sort_order ASC, created_at ASC' },
