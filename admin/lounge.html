@@ -60,8 +60,13 @@
       <h2 style="margin:0;font-size:1.1rem;">Sign-ups: <span id="suTitle"></span> <span id="suCount" style="font-size:0.85rem;color:var(--a-soft);font-weight:400;"></span></h2>
       <span><a class="a-btn a-btn-ghost" id="suCsv" href="#">Download CSV</a> <button class="a-btn a-btn-ghost" type="button" id="suClose">Close</button></span>
     </div>
+    <div id="suTally" hidden style="margin:0.8rem 0 1.2rem;">
+      <h3 style="margin:0 0 0.4rem;font-size:0.95rem;">Total per choice</h3>
+      <table class="a-table"><thead><tr><th>Choice</th><th class="num">Qty</th><th class="num">Cabins</th><th id="suTallyStatus">Status</th></tr></thead><tbody id="tb-tally"></tbody></table>
+      <p class="a-hint" id="suTallyHint" style="margin-top:0.4rem;"></p>
+    </div>
     <p class="a-hint">One row per cabin, tied to the reservation the guest signed in with.</p>
-    <table class="a-table"><thead><tr><th>Cabin</th><th>Reservation</th><th>Name</th><th class="num" id="suHead">Guests</th><th>Asked for</th><th>Note</th></tr></thead><tbody id="tb-su"></tbody></table>
+    <table class="a-table"><thead><tr><th>Cabin</th><th>Reservation</th><th>Name</th><th class="num" id="suHead">Guests</th><th>Asked for</th><th>Note</th><th id="suAgreedHead" hidden>Agreed</th></tr></thead><tbody id="tb-su"></tbody></table>
     <p class="a-hint" id="empty-su" hidden>Nobody has signed up yet.</p>
   </div>
 
@@ -70,7 +75,7 @@
       <h2 style="margin:0;font-size:1.1rem;">Email subscribers <span id="subCount" style="font-size:0.85rem;color:var(--a-soft);font-weight:400;"></span></h2>
       <a class="a-btn a-btn-ghost" href="/api/admin/lounge/subscribers?format=csv" download>Export CSV</a>
     </div>
-    <p class="a-hint">Guests who asked for updates on the Dive Bar. "Email to subscribers" on a post sends it to everyone here, from noreply@parrotheadscruise.com with replies going to Lori, Dawn and Brent.</p>
+    <p class="a-hint">Guests who asked for updates on the Dive Bar. "Email to subscribers" on a post sends it to everyone here plus the email on every booked cabin (those join this list the first time you send), skipping anyone who unsubscribed. Every email has an unsubscribe link. It goes from noreply@parrotheadscruise.com with replies going to Lori, Dawn and Brent.</p>
     <table class="a-table"><thead><tr><th>Email</th><th>Cabin</th><th>Subscribed</th></tr></thead><tbody id="tb-subs"></tbody></table>
     <p class="a-hint" id="empty-subs" hidden>Nobody has subscribed yet. Guests see the sign-up box on the Dive Bar.</p>
   </div>
@@ -147,6 +152,8 @@
       { k: 'published', l: 'Published', t: 'checkbox', def: true },
       { k: 'signup_label', l: 'Sign-up button (optional): leave blank for a plain post, or type the button text, e.g. Sign up for the Ocho Rios beach party. Guests sign up their own cabin.', t: 'text', full: true },
       { k: 'signup_options', l: 'Choices (optional): one per line as Name | Price | Detail | Picture path. With choices, guests pick a quantity of each instead of a headcount, e.g. Spa day | $90.00 per person | 50 minute massage | /assets/img/events/spa.jpg', t: 'textarea', full: true, rows: 7 },
+      { k: 'signup_min', l: 'Minimum per choice (optional): a tour or item needs this many in total to go ahead, e.g. 4. The sign-ups list then shows how close each choice is.', t: 'number' },
+      { k: 'signup_release', l: 'Release or agreement (optional, only with choices): guests see this text above a tick box and their request will not send until they tick it. The time they agreed is saved with the request.', t: 'textarea', full: true, rows: 12 },
       { k: 'image_url', l: 'Picture (optional): a site image like /assets/img/cfc-logo-transparent.png, or a full https link', t: 'text', full: true },
       { k: 'body', l: 'Text (blank line between paragraphs; links become clickable)', t: 'textarea', full: true, rows: 10 } ],
       row: function (p) { return [fmtDate(p.post_date), '<strong>' + esc(p.title) + '</strong>' + (p.signup_label ? '<br><span style="color:var(--a-soft);font-size:0.8rem;">Sign-up: ' + suCount(p.id) + '</span> <button class="a-btn a-btn-ghost" data-su="' + p.id + '" style="padding:0.2em 0.55em;font-size:0.78rem;">View list</button>' : ''), p.published ? 'Published' : '<span style="color:var(--a-soft);">Draft</span>', p.published ? ((p.emailed_at ? '<span style="color:var(--a-soft);font-size:0.8rem;">Emailed ' + new Date(p.emailed_at).toLocaleDateString() + '</span><br>' : '') + '<button class="a-btn a-btn-ghost" data-send="' + p.id + '" style="padding:0.3em 0.6em;font-size:0.8rem;">' + (p.emailed_at ? 'Send again' : 'Email to subscribers') + '</button><br><button class="a-btn a-btn-ghost" data-test="posts:' + p.id + '" style="padding:0.3em 0.6em;font-size:0.8rem;margin-top:0.3rem;" title="Sends the email only to you">Test to me</button>') : '<span style="color:var(--a-soft);font-size:0.8rem;">Publish first</span>']; } },
@@ -190,17 +197,17 @@
     var d = await res.json().catch(function () { return {}; });
     m.hidden = false; m.className = 'a-msg ' + (res.ok && !d.failed ? 'ok' : 'err');
     if (test) { m.textContent = res.ok && d.sent ? 'Test email sent to you. Check your inbox (and spam) in a minute ✓' : 'Could not send the test.'; window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
-    m.textContent = res.ok ? 'Emailed ' + d.sent + ' subscriber' + (d.sent === 1 ? '' : 's') + (d.failed ? ', ' + d.failed + ' failed' : '') + (d.error === 'no_resend_key' ? ' (email is not configured)' : '') + ' ✓' : 'Could not send.';
+    m.textContent = res.ok ? 'Emailed ' + d.sent + ' guest' + (d.sent === 1 ? '' : 's') + (d.failed ? ', ' + d.failed + ' failed' : '') + (d.error === 'no_resend_key' ? ' (email is not configured)' : '') + ' ✓' : 'Could not send.';
     window.scrollTo({ top: 0, behavior: 'smooth' });
     load();
   }
   async function askAndSend(type, id, title, justSaved) {
-    var n = (data.subscribers || []).length;
+    var n = (data.subscribers || []).length + (data.pendingGuests || 0);
     if (!id) return;
-    if (!n) { if (!justSaved) alert('No subscribers yet, nothing to send.'); return; }
+    if (!n) { if (!justSaved) alert('No guest emails yet, nothing to send.'); return; }
     var q = justSaved
-      ? 'Saved. Email "' + title + '" to your ' + n + ' Dive Bar subscriber' + (n === 1 ? '' : 's') + ' now?\n\nOK sends it. Cancel keeps it on the Dive Bar only; you can email it later from its row.'
-      : 'Email "' + title + '" to ' + n + ' subscriber' + (n === 1 ? '' : 's') + '?';
+      ? 'Saved. Email "' + title + '" to ' + n + ' guest' + (n === 1 ? '' : 's') + ' now? That is everyone who subscribed plus the email on each booked cabin, and each email has an unsubscribe link.\n\nOK sends it. Cancel keeps it on the Dive Bar only; you can email it later from its row.'
+      : 'Email "' + title + '" to ' + n + ' guest' + (n === 1 ? '' : 's') + '?';
     if (!confirm(q)) return;
     await sendEmail(type, id);
   }
@@ -214,6 +221,35 @@
   function choiceLine(raw) {
     try { return JSON.parse(raw || '[]').map(function (x) { return x.qty + ' x ' + x.label + (x.price ? ' (' + x.price + ')' : ''); }).join('; '); } catch (e) { return ''; }
   }
+  // Total quantity and number of cabins for each choice, across every request. With a minimum set, each
+  // choice says whether it has enough to go ahead.
+  function renderTally(post, rows) {
+    var names = [], seen = {}, by = {};
+    String(post.signup_options || '').split('\n').forEach(function (l) {
+      var n = l.split('|')[0].trim().slice(0, 80);
+      if (n && !seen[n]) { seen[n] = 1; names.push(n); }
+    });
+    rows.forEach(function (r) {
+      var list = [];
+      try { list = JSON.parse(r.choices || '[]'); } catch (e) { list = []; }
+      list.forEach(function (x) {
+        if (!x || !x.label) return;
+        if (!seen[x.label]) { seen[x.label] = 1; names.push(x.label); }
+        var b = by[x.label] || (by[x.label] = { q: 0, c: 0 });
+        b.q += x.qty || 0; b.c += 1;
+      });
+    });
+    var min = parseInt(post.signup_min, 10) || 0;
+    $('suTally').hidden = !names.length;
+    $('suTallyStatus').hidden = !min;
+    $('suTallyHint').textContent = min ? 'Each choice needs ' + min + ' in total to go ahead. Qty counts everyone picked across all cabins.' : 'Qty counts everyone picked across all cabins.';
+    $('tb-tally').innerHTML = names.map(function (n) {
+      var b = by[n] || { q: 0, c: 0 };
+      var status = '';
+      if (min) status = b.q >= min ? '<span style="color:#1d7a3a;font-weight:700;">&#10003; Enough to go</span>' : '<span style="color:var(--a-soft);">' + b.q + ' of ' + min + ', needs ' + (min - b.q) + ' more</span>';
+      return '<tr><td>' + esc(n) + '</td><td class="num"><strong>' + b.q + '</strong></td><td class="num">' + b.c + '</td>' + (min ? '<td>' + status + '</td>' : '') + '</tr>';
+    }).join('');
+  }
   async function showSignups(id) {
     var res = await fetch('/api/admin/lounge/signups?post=' + encodeURIComponent(id));
     var d = await res.json().catch(function () { return {}; });
@@ -225,8 +261,13 @@
     $('suHead').textContent = hasChoices ? 'Items' : 'Guests';
     $('suCsv').href = '/api/admin/lounge/signups?format=csv&post=' + encodeURIComponent(id);
     $('empty-su').hidden = rows.length > 0;
+    var post = (data.posts || []).filter(function (x) { return x.id === id; })[0] || {};
+    var hasRelease = !!(post.signup_release || '').trim();
+    $('suAgreedHead').hidden = !hasRelease;
+    renderTally(post, rows);
     $('tb-su').innerHTML = rows.map(function (r) {
-      return '<tr><td>' + esc(r.cabin_number || '') + '</td><td>' + esc(r.res_number || '') + '</td><td>' + esc(r.name || '') + '</td><td class="num">' + r.guests + '</td><td>' + esc(choiceLine(r.choices)) + '</td><td>' + esc(r.note || '') + '</td></tr>';
+      return '<tr><td>' + esc(r.cabin_number || '') + '</td><td>' + esc(r.res_number || '') + '</td><td>' + esc(r.name || '') + '</td><td class="num">' + r.guests + '</td><td>' + esc(choiceLine(r.choices)) + '</td><td>' + esc(r.note || '') + '</td>' +
+        (hasRelease ? '<td style="white-space:nowrap;">' + (r.agreed_at ? '&#10003; ' + new Date(r.agreed_at).toLocaleDateString() : '<span style="color:var(--a-soft);">no</span>') + '</td>' : '') + '</tr>';
     }).join('');
     $('suCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
@@ -256,9 +297,9 @@
     tb.querySelectorAll('[data-send]').forEach(function (b) {
       b.onclick = async function () {
         var id = b.getAttribute('data-send'), post = data.posts.find(function (x) { return x.id === id; });
-        var n = (data.subscribers || []).length, m = $('sendMsg');
-        if (!n) { m.hidden = false; m.className = 'a-msg err'; m.textContent = 'No subscribers yet, nothing to send.'; return; }
-        if (!confirm('Email "' + post.title + '" to ' + n + ' subscriber' + (n === 1 ? '' : 's') + (post.emailed_at ? ' again' : '') + '?')) return;
+        var n = (data.subscribers || []).length + (data.pendingGuests || 0), m = $('sendMsg');
+        if (!n) { m.hidden = false; m.className = 'a-msg err'; m.textContent = 'No guest emails yet, nothing to send.'; return; }
+        if (!confirm('Email "' + post.title + '" to ' + n + ' guest' + (n === 1 ? '' : 's') + (post.emailed_at ? ' again' : '') + '?')) return;
         b.disabled = true;
         var res = await fetch('/api/admin/lounge/posts/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id }) });
         var d = await res.json().catch(function () { return {}; });
@@ -299,7 +340,7 @@
       var res = await fetch('/api/admin/lounge');
       if (!res.ok) throw new Error('http ' + res.status);
       data = await res.json();
-      try { data.subscribers = (await (await fetch('/api/admin/lounge/subscribers')).json()).subscribers || []; } catch (e) { data.subscribers = []; }
+      try { var sj = await (await fetch('/api/admin/lounge/subscribers')).json(); data.subscribers = sj.subscribers || []; data.pendingGuests = sj.pending || 0; } catch (e) { data.subscribers = []; data.pendingGuests = 0; }
       renderSubs();
       renderRefs();
       $('refPrize').value = data.settings.referral_prize || '';

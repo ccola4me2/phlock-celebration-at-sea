@@ -149,6 +149,11 @@ export async function ensureSchema(db) {
     )`,
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_lounge_subs_cabin_email ON lounge_subscribers(cabin_id, email)`,
     `CREATE INDEX IF NOT EXISTS idx_lounge_subs_token ON lounge_subscribers(token)`,
+    // Addresses that clicked unsubscribe: never added back from the cabin list, only by their own sign-up.
+    `CREATE TABLE IF NOT EXISTS lounge_optouts (
+      email TEXT PRIMARY KEY,
+      created_at INTEGER NOT NULL
+    )`,
     `CREATE TABLE IF NOT EXISTS lounge_pirates (
       id TEXT PRIMARY KEY,
       cabin_id TEXT NOT NULL,
@@ -213,6 +218,10 @@ export async function ensureSchema(db) {
     // A sign-up post can offer choices (one per line: Label | Price | Detail | Picture); the guest picks a quantity of each.
     'ALTER TABLE lounge_posts ADD COLUMN signup_options TEXT',
     'ALTER TABLE lounge_signups ADD COLUMN choices TEXT',
+    // A sign-up post can carry a release the guest must agree to (text), and a minimum per choice (a tour needs N to run).
+    'ALTER TABLE lounge_posts ADD COLUMN signup_release TEXT',
+    'ALTER TABLE lounge_posts ADD COLUMN signup_min INTEGER',
+    'ALTER TABLE lounge_signups ADD COLUMN agreed_at INTEGER',
     // A schedule entry can carry a button (e.g. Sign up) that links to a Dive Bar post or a page.
     'ALTER TABLE lounge_events ADD COLUMN link_label TEXT',
     'ALTER TABLE lounge_events ADD COLUMN link_url TEXT',
@@ -583,11 +592,11 @@ export function getSignup(db, postId, cabinId) {
 export function saveSignup(db, s) {
   return db
     .prepare(
-      `INSERT INTO lounge_signups (id, post_id, cabin_id, guests, note, choices, created_at, updated_at)
-       VALUES (?,?,?,?,?,?,?,?)
-       ON CONFLICT(post_id, cabin_id) DO UPDATE SET guests = excluded.guests, note = excluded.note, choices = excluded.choices, updated_at = excluded.updated_at`
+      `INSERT INTO lounge_signups (id, post_id, cabin_id, guests, note, choices, agreed_at, created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?)
+       ON CONFLICT(post_id, cabin_id) DO UPDATE SET guests = excluded.guests, note = excluded.note, choices = excluded.choices, agreed_at = excluded.agreed_at, updated_at = excluded.updated_at`
     )
-    .bind(s.id, s.post_id, s.cabin_id, s.guests, s.note || '', s.choices || '', s.now, s.now)
+    .bind(s.id, s.post_id, s.cabin_id, s.guests, s.note || '', s.choices || '', s.agreed_at || null, s.now, s.now)
     .run();
 }
 
@@ -599,7 +608,7 @@ export function deleteSignup(db, postId, cabinId) {
 export async function listSignups(db, postId) {
   const rows = await db
     .prepare(
-      `SELECT g.guests, g.note, g.choices, g.created_at, g.updated_at, c.id AS cabin_id, c.name, c.res_number, c.cabin_number, c.cabin_type
+      `SELECT g.guests, g.note, g.choices, g.agreed_at, g.created_at, g.updated_at, c.id AS cabin_id, c.name, c.res_number, c.cabin_number, c.cabin_type
        FROM lounge_signups g JOIN cabins c ON c.id = g.cabin_id
        WHERE g.post_id = ?
        ORDER BY g.created_at ASC LIMIT 1000`
@@ -706,7 +715,7 @@ export function bumpShortLink(db, code, ts) {
 
 // ---- Drifters Lounge content (one generic CRUD over four small tables) ----
 export const LOUNGE_TYPES = {
-  posts: { table: 'lounge_posts', cols: ['title', 'body', 'post_date', 'published', 'image_url', 'signup_label', 'signup_options'], order: 'post_date DESC, created_at DESC' },
+  posts: { table: 'lounge_posts', cols: ['title', 'body', 'post_date', 'published', 'image_url', 'signup_label', 'signup_options', 'signup_release', 'signup_min'], order: 'post_date DESC, created_at DESC' },
   events: { table: 'lounge_events', cols: ['day', 'start_time', 'title', 'detail', 'day_label', 'link_label', 'link_url'], order: 'day ASC, start_time ASC, created_at ASC' },
   dates: { table: 'lounge_dates', cols: ['due_date', 'title', 'detail'], order: 'due_date ASC, created_at ASC' },
   links: { table: 'lounge_links', cols: ['title', 'note', 'url', 'sort_order'], order: 'sort_order ASC, created_at ASC' },
@@ -839,6 +848,43 @@ export async function listSubscribers(db) {
 
 export function deleteSubscriberByToken(db, token) {
   return db.prepare('DELETE FROM lounge_subscribers WHERE token = ?').bind(token).run();
+}
+
+/** Unsubscribe by the link's token: remembers the address as opted out and removes it from every cabin's list. */
+export async function unsubscribeByToken(db, token) {
+  const row = await db.prepare('SELECT email FROM lounge_subscribers WHERE token = ?').bind(token).first();
+  if (!row || !row.email) return null;
+  const email = String(row.email).trim().toLowerCase();
+  await db.prepare('INSERT OR IGNORE INTO lounge_optouts (email, created_at) VALUES (?, ?)').bind(email, Date.now()).run();
+  await db.prepare('DELETE FROM lounge_subscribers WHERE LOWER(email) = ?').bind(email).run();
+  return email;
+}
+
+/** A guest who signs up for updates themselves is no longer opted out. */
+export function removeOptOut(db, email) {
+  return db.prepare('DELETE FROM lounge_optouts WHERE email = ?').bind(String(email || '').trim().toLowerCase()).run();
+}
+
+/**
+ * Email addresses on booked cabins (the Email box on the Cabins page) that are not yet on the Dive Bar list and
+ * have not opted out. One entry per address. Test cabins (reservation numbers starting 999) are left out.
+ */
+export async function pendingCabinEmails(db) {
+  const cabins = await db
+    .prepare("SELECT id, email FROM cabins WHERE status <> 'available' AND TRIM(COALESCE(email, '')) <> '' AND COALESCE(res_number, '') NOT LIKE '999%' ORDER BY cabin_number ASC")
+    .all();
+  const have = new Set(((await db.prepare('SELECT email FROM lounge_subscribers').all()).results || []).map((r) => String(r.email).trim().toLowerCase()));
+  const out = new Set(((await db.prepare('SELECT email FROM lounge_optouts').all()).results || []).map((r) => String(r.email).trim().toLowerCase()));
+  const add = [];
+  for (const c of cabins.results || []) {
+    for (const raw of String(c.email).split(/[\s,;]+/)) {
+      const email = raw.trim().toLowerCase();
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || have.has(email) || out.has(email)) continue;
+      have.add(email);
+      add.push({ cabin_id: c.id, email });
+    }
+  }
+  return add;
 }
 
 export function setPostEmailed(db, id, ts) {

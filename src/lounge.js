@@ -34,7 +34,9 @@ import {
   insertSubscriber,
   listSubscribersForCabin,
   listSubscribers,
-  deleteSubscriberByToken,
+  unsubscribeByToken,
+  removeOptOut,
+  pendingCabinEmails,
   setPostEmailed,
   ensureReferralLink,
   listReferralBoard,
@@ -189,6 +191,11 @@ const CSS = `
   .lg-signup .btn-cancel { background:none; border:none; color:#8a3b2b; text-decoration:underline; cursor:pointer; font:inherit; padding:.4rem; }
   .lg-signup .in { background:#e9f6ec; border:1px solid #a9d6b5; color:#1d5d33; border-radius:8px; padding:.7rem .9rem; margin:0 0 .8rem; font-weight:600; }
   .lg-signup .msg { margin-top:.7rem; font-size:.92rem; } .lg-signup .msg.err { color:#a02a1c; }
+  .lg-release { max-height:260px; overflow:auto; border:1px solid #cdbf93; border-radius:10px; background:#fffdf6; padding:.8rem 1rem; margin-top:1.2rem; font-size:.88rem; line-height:1.5; color:var(--ink-soft); }
+  .lg-release b.h { display:block; color:var(--navy-900); margin-bottom:.5rem; font-size:.95rem; }
+  .lg-release p { margin:0 0 .65rem; } .lg-release p:last-child { margin-bottom:0; }
+  .lg-signup label.lg-agree { display:flex; gap:.6rem; align-items:flex-start; font-weight:600; margin:.8rem 0 0; cursor:pointer; }
+  .lg-agree input { width:1.15rem; height:1.15rem; margin-top:.15rem; flex:none; accent-color:#8a6d1f; }
   .lg-opts { display:grid; gap:.7rem; margin:.5rem 0 .2rem; }
   .lg-opt { display:flex; gap:.8rem; align-items:center; border:1px solid #cdbf93; border-radius:10px; background:#fff; padding:.5rem; }
   .lg-opt img { width:104px; height:70px; object-fit:cover; border-radius:8px; flex:none; background:#eee; }
@@ -603,10 +610,17 @@ function optionRows(opts, saved, live) {
   return opts.map((o, i) => `<div class="lg-opt">${o.image ? `<img src="${esc(o.image)}" alt="" loading="lazy">` : ''}<div class="t"><b>${esc(o.label)}</b>${o.price ? `<span class="p">${esc(o.price)}</span>` : ''}${o.note ? `<span class="n">${esc(o.note)}</span>` : ''}</div>${live ? `<label class="qty">Qty<select class="oq" data-i="${i}" aria-label="Quantity: ${esc(o.label)}">${[0, 1, 2, 3, 4, 5, 6].map((n) => `<option value="${n}"${(saved[o.label] || 0) === n ? ' selected' : ''}>${n}</option>`).join('')}</select></label>` : ''}</div>`).join('');
 }
 
+// The release or terms text an admin pasted: blank lines separate paragraphs, nothing else is interpreted.
+function releaseHtml(text) {
+  return String(text || '').trim().split(/\n\s*\n/).map((p) => `<p>${esc(p.trim()).replace(/\n/g, '<br>')}</p>`).join('');
+}
+
 function optionsBlock(post, opts, e, pass) {
+  const rel = String(post.signup_release || '').trim();
+  const relBox = rel ? `<div class="lg-release"><b class="h">Please read before you send</b>${releaseHtml(rel)}</div>` : '';
   if (e.admin && !e.cabin) {
     const t = e.totals || { cabins: 0, guests: 0 };
-    return `<section id="signup" class="card lg-signup"><span class="tag">Request</span><h2>${esc(post.signup_label)}</h2><p class="cab">Admin preview. Guests see these choices, each with a quantity box, and the request is saved to their own cabin. So far: <b>${t.cabins || 0}</b> cabin${t.cabins === 1 ? '' : 's'}, <b>${t.guests || 0}</b> item${t.guests === 1 ? '' : 's'}. The full list is on the admin Dive Bar page.</p><div class="lg-opts">${optionRows(opts, {}, false)}</div></section>`;
+    return `<section id="signup" class="card lg-signup"><span class="tag">Request</span><h2>${esc(post.signup_label)}</h2><p class="cab">Admin preview. Guests see these choices, each with a quantity box, and the request is saved to their own cabin. So far: <b>${t.cabins || 0}</b> cabin${t.cabins === 1 ? '' : 's'}, <b>${t.guests || 0}</b> item${t.guests === 1 ? '' : 's'}. The full list is on the admin Dive Bar page.</p><div class="lg-opts">${optionRows(opts, {}, false)}</div>${relBox}${rel ? '<p class="cab" style="margin-top:.8rem;">Guests must tick a box to agree to this before their request will send.</p>' : ''}</section>`;
   }
   if (!e.cabin) return '';
   const su = e.signup;
@@ -623,22 +637,24 @@ function optionsBlock(post, opts, e, pass) {
   <div class="lg-opts">${optionRows(opts, saved, true)}</div>
   <label for="su-note">Anything we should know? (optional)</label>
   <input type="text" id="su-note" maxlength="200" value="${esc(su ? su.note : '')}" placeholder="Names, ages, days, questions">
+  ${relBox}${rel ? '<label class="lg-agree" for="su-ok"><input type="checkbox" id="su-ok"><span>I have read the above and agree to it for myself and everyone I am signing up.</span></label>' : ''}
   <div class="row"><button class="btn btn-gold" id="su-go" type="button">${su ? 'Update my request' : 'Send my request'}</button><button class="btn-cancel" id="su-no" type="button"${su ? '' : ' hidden'}>Cancel my request</button></div>
   <div class="msg" id="su-msg" role="status" hidden></div>
 </section>
-<script>(function(){var PASS=${JSON.stringify(pass || '')},POST=${JSON.stringify(post.id)},LABELS=${labels};
+<script>(function(){var PASS=${JSON.stringify(pass || '')},POST=${JSON.stringify(post.id)},LABELS=${labels},REL=${rel ? 'true' : 'false'};
 var $=function(i){return document.getElementById(i);},busy=false,saved=${su ? 'true' : 'false'};
 function msg(t,bad){var m=$('su-msg');m.textContent=t;m.className='msg'+(bad?' err':'');m.hidden=false;}
 function pick(){var o={},t=0,q=document.querySelectorAll('.oq');for(var i=0;i<q.length;i++){var n=parseInt(q[i].value,10)||0;o[LABELS[+q[i].getAttribute('data-i')]]=n;t+=n;}return {o:o,t:t};}
 function send(o){if(busy)return;busy=true;$('su-go').disabled=true;
-fetch('/drifters/signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({post:POST,choices:o,note:$('su-note').value,s:PASS})})
+fetch('/drifters/signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({post:POST,choices:o,note:$('su-note').value,agree:REL?$('su-ok').checked:undefined,s:PASS})})
 .then(function(r){return r.json().then(function(d){return {ok:r.ok,d:d};});})
-.then(function(x){if(!x.ok){msg(x.d&&x.d.error==='off'?'Requests are closed for this offer.':'Sorry, that did not save. Please try again, or text Lori, Dawn or Brent.',true);return;}
+.then(function(x){if(!x.ok){msg(x.d&&x.d.error==='off'?'Requests are closed for this offer.':x.d&&x.d.error==='agree'?'Please tick the box to agree first.':'Sorry, that did not save. Please try again, or text Lori, Dawn or Brent.',true);return;}
 var n=x.d.guests||0;saved=n>0;$('su-in').hidden=!n;$('su-n').textContent=n;$('su-s').textContent=n===1?'':'s';$('su-no').hidden=!n;$('su-go').textContent=n?'Update my request':'Send my request';
 msg(n?'Got it. We will price this with the sale and confirm with you.':'Your request was cancelled.',false);})
 .catch(function(){msg('Sorry, that did not save. Please try again.',true);})
 .then(function(){busy=false;$('su-go').disabled=false;});}
-$('su-go').onclick=function(){var p=pick();if(!p.t){if(saved){if(confirm('Cancel the request for this cabin?'))send(p.o);}else msg('Choose at least one item first.',true);return;}send(p.o);};
+$('su-go').onclick=function(){var p=pick();if(!p.t){if(saved){if(confirm('Cancel the request for this cabin?'))send(p.o);}else msg('Choose at least one item first.',true);return;}
+if(REL&&!$('su-ok').checked){msg('Please read the release above and tick the box to agree before you send.',true);$('su-ok').focus();return;}send(p.o);};
 $('su-no').onclick=function(){if(confirm('Cancel the request for this cabin?')){var q=document.querySelectorAll('.oq');for(var i=0;i<q.length;i++)q[i].value='0';send(pick().o);}};
 })();</script>`;
 }
@@ -827,23 +843,31 @@ export async function handleLounge(request, env, url) {
       const before = await getSignup(env.DB, post.id, cabin.id);
       if (total === 0) {
         await deleteSignup(env.DB, post.id, cabin.id);
-        if (before) await notifyRequest(env, post, cabin, [], '', 'cancelled');
+        if (before) { await notifyRequest(env, post, cabin, [], '', 'cancelled'); await confirmToGuest(env, post, cabin, [], '', 'cancelled'); }
         return json({ ok: true, guests: 0 });
       }
       const note = clip(body.note, 200);
-      await saveSignup(env.DB, { id: crypto.randomUUID(), post_id: post.id, cabin_id: cabin.id, guests: total, note, choices: JSON.stringify(picked), now: Date.now() });
+      // A post with a release takes no request unless the guest ticked the box; the time they agreed is kept.
+      const needsRelease = !!String(post.signup_release || '').trim();
+      if (needsRelease && body.agree !== true) return json({ error: 'agree' }, 400);
+      await saveSignup(env.DB, { id: crypto.randomUUID(), post_id: post.id, cabin_id: cabin.id, guests: total, note, choices: JSON.stringify(picked), agreed_at: needsRelease ? Date.now() : null, now: Date.now() });
       await notifyRequest(env, post, cabin, picked, note, before ? 'changed' : 'new');
+      await confirmToGuest(env, post, cabin, picked, note, before ? 'changed' : 'new', { agreedAt: Date.now() });
       return json({ ok: true, guests: total });
     }
     // Only a real number cancels (0). Blank, null or text is a bad request, never a cancel.
     const rawGuests = body.guests;
     const guests = typeof rawGuests === 'number' || (typeof rawGuests === 'string' && /^\d{1,2}$/.test(rawGuests.trim())) ? Math.floor(Number(rawGuests)) : NaN;
     if (!(guests >= 0 && guests <= 6)) return json({ error: 'bad_request' }, 400);
+    const hadSignup = await getSignup(env.DB, post.id, cabin.id);
     if (guests === 0) {
       await deleteSignup(env.DB, post.id, cabin.id);
+      if (hadSignup) await confirmToGuest(env, post, cabin, [], '', 'cancelled');
       return json({ ok: true, guests: 0 });
     }
-    await saveSignup(env.DB, { id: crypto.randomUUID(), post_id: post.id, cabin_id: cabin.id, guests, note: clip(body.note, 200), now: Date.now() });
+    const hcNote = clip(body.note, 200);
+    await saveSignup(env.DB, { id: crypto.randomUUID(), post_id: post.id, cabin_id: cabin.id, guests, note: hcNote, now: Date.now() });
+    await confirmToGuest(env, post, cabin, [], hcNote, hadSignup ? 'changed' : 'new', { guests });
     return json({ ok: true, guests });
   }
 
@@ -864,6 +888,7 @@ export async function handleLounge(request, env, url) {
     const existing = await listSubscribersForCabin(env.DB, guest.cabin_id);
     if (existing.some((s) => s.email === email)) return redirect(back + 'dup#updates');
     await insertSubscriber(env.DB, { id: crypto.randomUUID(), cabin_id: guest.cabin_id, email, token: randomToken(24), created_at: Date.now() });
+    await removeOptOut(env.DB, email);
     return redirect(back + 'ok#updates');
   }
 
@@ -893,7 +918,7 @@ export async function handleLounge(request, env, url) {
 
   if (path === '/drifters/email/unsubscribe' && (method === 'GET' || method === 'POST')) {
     const t = clip(url.searchParams.get('t'), 80);
-    if (t) await deleteSubscriberByToken(env.DB, t);
+    if (t) await unsubscribeByToken(env.DB, t);
     if (method === 'POST') return new Response('OK');
     return html(head('Unsubscribed') + '<section><div class="container lg-article"><h1>You\'re unsubscribed</h1><p>No more Dive Bar emails to this address. The page itself is still yours: <a href="/drifters">parrotheadscruise.com/drifters</a>.</p></div></section>' + foot(''));
   }
@@ -1010,6 +1035,7 @@ async function notifyRequest(env, post, cabin, picked, note, kind, opts) {
     const res = String(cabin.res_number || '').trim() || 'not on file';
     const names = String(cabin.name || '').trim() || '(no name)';
     const guestEmail = String(cabin.email || '').trim();
+    const agreed = kind !== 'cancelled' && !!String(post.signup_release || '').trim();
     const subject = `${o.test ? '[Test] ' : ''}${verb} request: Res ${res}, ${names}`;
     const items = (picked || []).map((x) => `${x.qty} x ${x.label}${x.price ? ' (' + x.price + ')' : ''}`);
     const e = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -1022,10 +1048,11 @@ async function notifyRequest(env, post, cabin, picked, note, kind, opts) {
   <p style="margin:0 0 6px;">${e(intro)}</p>
   ${items.length ? `<ul style="margin:0 0 12px;padding-left:20px;font-size:15px;line-height:1.6;">${items.map((i) => `<li>${e(i)}</li>`).join('')}</ul>` : ''}
   ${note ? `<p style="margin:0 0 12px;"><b>Their note:</b> ${e(note)}</p>` : ''}
+  ${agreed ? '<p style="margin:0 0 12px;"><b>Agreed to the release:</b> yes</p>' : ''}
   <p style="margin:16px 0;"><a href="${SITE}/admin/lounge" style="background:#c9a545;color:#081627;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:bold;">Open the list in Admin</a></p>
   <p style="font-size:12px;color:#667;">Sent automatically when a guest uses the form on the Dive Bar. Sale prices are the cruise line's; confirm the booking with the guest.</p>
 </div>`;
-    const text = `${verb} request${o.test ? ' (test)' : ''}: ${post.title}\nReservation ${res}\n${names}${guestEmail ? '\n' + guestEmail : ''}\n\n${intro}\n${items.map((i) => '- ' + i).join('\n')}${note ? '\nTheir note: ' + note : ''}\n\n${SITE}/admin/lounge`;
+    const text = `${verb} request${o.test ? ' (test)' : ''}: ${post.title}\nReservation ${res}\n${names}${guestEmail ? '\n' + guestEmail : ''}\n\n${intro}\n${items.map((i) => '- ' + i).join('\n')}${note ? '\nTheir note: ' + note : ''}${agreed ? '\nAgreed to the release: yes' : ''}\n\n${SITE}/admin/lounge`;
     const r = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ from, to, subject, html, text }, guestEmail && !o.test ? { reply_to: guestEmail.split(/\s*,\s*/) } : {})) });
     return r.ok;
   } catch {
@@ -1033,7 +1060,67 @@ async function notifyRequest(env, post, cabin, picked, note, kind, opts) {
   }
 }
 
+// Put every booked cabin's email address on the Dive Bar list (with its own unsubscribe link) unless that
+// address has opted out. Runs just before a real send, so a new address on the Cabins page is picked up.
+async function syncCabinSubscribers(db) {
+  const add = await pendingCabinEmails(db);
+  for (const a of add) await insertSubscriber(db, { id: crypto.randomUUID(), cabin_id: a.cabin_id, email: a.email, token: randomToken(24), created_at: Date.now() });
+  return add.length;
+}
+
+// Confirm a request to the guest who made it: what they asked for, their note, and (when the post has a
+// release) a copy of what they agreed to and when. Goes to the email address(es) on their cabin; nobody
+// without one gets anything. Never throws. kind is 'new', 'changed' or 'cancelled'; o.guests is the headcount
+// for a plain sign-up (no choices).
+async function confirmToGuest(env, post, cabin, picked, note, kind, o) {
+  try {
+    o = o || {};
+    if (!o.test && /^999/.test(String(cabin.res_number || '').trim())) return false;
+    const key = env.RESEND_API_KEY;
+    if (!key) return false;
+    const to = o.to || String(cabin.email || '').split(/[\s,;]+/).map((s) => s.trim()).filter((s) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s)).slice(0, 4);
+    if (!to.length) return false;
+    const from = env.MAIL_FROM || 'Parrothead Day Cruise <noreply@parrotheadscruise.com>';
+    const replyTo = String(env.DRIP_REPLY_TO || env.LEAD_NOTIFY_EMAILS || '').split(',').map((s) => s.trim()).filter(Boolean);
+    const e = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const names = String(cabin.name || '').trim() || 'there';
+    const res = String(cabin.res_number || '').trim();
+    const plain = !!(o.guests && !(picked || []).length);
+    const cancelled = kind === 'cancelled';
+    const subject = `${o.test ? '[Test] ' : ''}${cancelled ? 'Cancelled' : plain ? "You're signed up" : 'We have your request'}: ${post.title}`;
+    const items = (picked || []).map((x) => `${x.qty} x ${x.label}${x.price ? ' (' + x.price + ')' : ''}`);
+    const lead = cancelled ? 'Your request has been cancelled. Nothing further is needed.' : plain ? `You're signed up with ${o.guests} guest${o.guests === 1 ? '' : 's'} from your cabin.` : kind === 'changed' ? 'We updated your request. This is the full list now:' : 'Thank you. Here is what you asked for:';
+    const rel = String(post.signup_release || '').trim();
+    const showRel = rel && !cancelled && !plain;
+    const when = new Date(o.agreedAt || Date.now()).toLocaleString('en-US', { timeZone: 'America/New_York', dateStyle: 'long', timeStyle: 'short' });
+    const link = `${SITE}/drifters/post/${post.id}#signup`;
+    const relHtml = showRel ? `<p style="margin:18px 0 6px;"><b>What you agreed to</b> (${e(when)} Eastern):</p><div style="border:1px solid #d9cfae;background:#fffdf6;border-radius:8px;padding:10px 14px;font-size:13px;line-height:1.5;color:#445;">${releaseHtml(rel)}</div>` : '';
+    const html = `<div style="font-family:Arial,sans-serif;max-width:560px;color:#1b2430;">
+  <p style="margin:0 0 4px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#8a6d1f;">${e(post.title)}</p>
+  <h2 style="margin:0 0 10px;color:#081627;">Hi ${e(names)},</h2>
+  <p style="margin:0 0 8px;">${e(lead)}</p>
+  ${items.length ? `<ul style="margin:0 0 12px;padding-left:20px;font-size:15px;line-height:1.6;">${items.map((i) => `<li>${e(i)}</li>`).join('')}</ul>` : ''}
+  ${res ? `<p style="margin:0 0 8px;color:#445;">Reservation ${e(res)}</p>` : ''}
+  ${note && !cancelled ? `<p style="margin:0 0 12px;"><b>Your note:</b> ${e(note)}</p>` : ''}
+  ${cancelled ? '' : '<p style="margin:0 0 8px;">We will follow up to confirm. If anything looks wrong, just reply to this email.</p>'}
+  ${relHtml}
+  <p style="margin:18px 0;"><a href="${link}" style="background:#c9a545;color:#081627;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:bold;">${cancelled ? 'Open the Dive Bar' : 'Change your request'}</a></p>
+  <p style="font-size:12px;color:#667;">You are getting this because a request was sent from your cabin on the Drifters Dive Bar.</p>
+</div>`;
+    const text = `${post.title}\n\nHi ${names},\n${lead}\n${items.map((i) => '- ' + i).join('\n')}${res ? '\nReservation ' + res : ''}${note && !cancelled ? '\nYour note: ' + note : ''}${cancelled ? '' : '\n\nWe will follow up to confirm. If anything looks wrong, just reply to this email.'}${showRel ? '\n\nWhat you agreed to (' + when + ' Eastern):\n' + rel : ''}\n\n${link}`;
+    const msg = { from, to, subject, html, text };
+    if (replyTo.length && !o.test) msg.reply_to = replyTo;
+    const r = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify(msg) });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
 async function sendToSubscribers(env, subs, make) {
+  // One email per address, even when the same address is on more than one cabin.
+  const seenEmail = new Set();
+  subs = subs.filter((s) => { const k = String((s && s.email) || '').trim().toLowerCase(); if (!k || seenEmail.has(k)) return false; seenEmail.add(k); return true; });
   const key = env.RESEND_API_KEY;
   if (!key) return { sent: 0, failed: subs.length, error: 'no_resend_key' };
   const from = env.MAIL_FROM || 'Parrothead Day Cruise <noreply@parrotheadscruise.com>';
@@ -1124,6 +1211,8 @@ function cleanRow(type, b) {
     if (b.published !== undefined) row.published = b.published ? 1 : 0;
     if (b.signup_label !== undefined) row.signup_label = clip(b.signup_label, 80);
     if (b.signup_options !== undefined) row.signup_options = clip(b.signup_options, 4000);
+    if (b.signup_release !== undefined) row.signup_release = clip(b.signup_release, 8000);
+    if (b.signup_min !== undefined) { const n = parseInt(b.signup_min, 10); row.signup_min = n >= 1 && n <= 99 ? n : null; }
     if (b.image_url !== undefined) {
       const u = clip(b.image_url, 500);
       row.image_url = /^(\/[^\s]*|https:\/\/[^\s]+)$/.test(u) ? u : '';
@@ -1178,7 +1267,7 @@ export async function handleLoungeAdmin(request, env, url) {
       const lines = ['email,cabin,name,subscribed_at'].concat(subs.map((s) => [s.email, s.cabin_number, s.cabin_name, new Date(s.created_at).toISOString()].map(escCsv).join(',')));
       return new Response(lines.join('\n'), { headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="dive-bar-subscribers.csv"', 'Cache-Control': 'no-store' } });
     }
-    return json({ subscribers: subs });
+    return json({ subscribers: subs, pending: (await pendingCabinEmails(env.DB)).length });
   }
 
   if (path === '/api/admin/lounge/signups' && method === 'GET') {
@@ -1190,7 +1279,7 @@ export async function handleLoungeAdmin(request, env, url) {
       // A guest types the note, so a cell that starts like a spreadsheet formula is defused for Excel.
       const escCsv = (v) => { let s = String(v == null ? '' : v); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
       const choiceText = (raw) => { try { return JSON.parse(raw || '[]').map((x) => x.qty + ' x ' + x.label).join('; '); } catch { return ''; } };
-      const lines = ['cabin,reservation,name,guests,choices,note,signed_up'].concat(rows.map((r) => [r.cabin_number, r.res_number, r.name, r.guests, choiceText(r.choices), r.note, new Date(r.created_at).toISOString()].map(escCsv).join(',')));
+      const lines = ['cabin,reservation,name,guests,choices,note,signed_up,agreed_to_release'].concat(rows.map((r) => [r.cabin_number, r.res_number, r.name, r.guests, choiceText(r.choices), r.note, new Date(r.created_at).toISOString(), r.agreed_at ? new Date(r.agreed_at).toISOString() : ''].map(escCsv).join(',')));
       return new Response(lines.join('\n'), { headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="dive-bar-signups.csv"', 'Cache-Control': 'no-store' } });
     }
     return json({ post: { id: post.id, title: post.title }, signups: rows });
@@ -1237,7 +1326,8 @@ export async function handleLoungeAdmin(request, env, url) {
     if (!opts.length) return json({ error: 'no_choices' }, 400);
     const picked = [{ label: opts[0].label, price: opts[0].price, qty: 2 }, { label: opts[opts.length - 1].label, price: opts[opts.length - 1].price, qty: 1 }];
     const ok = await notifyRequest(env, post, { res_number: '54385181', name: 'Brent & Lauren Beasley' }, picked, 'Sample note from a guest', 'new', { to: [admin.email], test: true });
-    return json({ ok, to: admin.email });
+    const okGuest = await confirmToGuest(env, post, { res_number: '54385181', name: 'Brent & Lauren Beasley' }, picked, 'Sample note from a guest', 'new', { to: [admin.email], test: true, agreedAt: Date.now() });
+    return json({ ok, okGuest, to: admin.email });
   }
 
   if (path === '/api/admin/lounge/posts/send') {
@@ -1247,6 +1337,7 @@ export async function handleLoungeAdmin(request, env, url) {
     if (!post.published) return json({ error: 'unpublished' }, 400);
     // A test goes only to the signed-in admin's own address and never marks the post as emailed.
     const test = !!body.test;
+    if (!test) await syncCabinSubscribers(env.DB);
     const subs = test ? [{ email: admin.email, token: 'test' }] : await listSubscribers(env.DB);
     if (!subs.length) return json({ ok: true, sent: 0, failed: 0 });
     const r = await emailPost(env, post, subs, test);
@@ -1263,6 +1354,7 @@ export async function handleLoungeAdmin(request, env, url) {
     const row = id && (await getLoungeRow(env.DB, type, id));
     if (!row) return json({ error: 'not_found' }, 404);
     const test = !!body.test;
+    if (!test) await syncCabinSubscribers(env.DB);
     const subs = test ? [{ email: admin.email, token: 'test' }] : await listSubscribers(env.DB);
     if (!subs.length) return json({ ok: true, sent: 0, failed: 0 });
     return json(Object.assign({ ok: true, to: test ? admin.email : undefined }, await emailUpdate(env, type, row, subs, test)));
