@@ -50,7 +50,7 @@ import {
   cabinSignups,
 } from './db.js';
 import { christenPirate, previewPirate } from './pirates.js';
-import { json, parseCookies, randomToken, sha256Hex } from './util.js';
+import { json, parseCookies, randomToken, sha256Hex, testAddress } from './util.js';
 
 const SITE = 'https://parrotheadscruise.com';
 // A sign-in can send the guest back to the one post they came for (a shared sign-up link).
@@ -1326,9 +1326,9 @@ export async function handleLoungeAdmin(request, env, url) {
     const opts = parseOptions(post.signup_options);
     if (!opts.length) return json({ error: 'no_choices' }, 400);
     const picked = [{ label: opts[0].label, price: opts[0].price, qty: 2 }, { label: opts[opts.length - 1].label, price: opts[opts.length - 1].price, qty: 1 }];
-    const ok = await notifyRequest(env, post, { res_number: '54385181', name: 'Brent & Lauren Beasley' }, picked, 'Sample note from a guest', 'new', { to: [admin.email], test: true });
-    const okGuest = await confirmToGuest(env, post, { res_number: '54385181', name: 'Brent & Lauren Beasley' }, picked, 'Sample note from a guest', 'new', { to: [admin.email], test: true, agreedAt: Date.now() });
-    return json({ ok, okGuest, to: admin.email });
+    const ok = await notifyRequest(env, post, { res_number: '54385181', name: 'Brent & Lauren Beasley' }, picked, 'Sample note from a guest', 'new', { to: [testAddress(env, admin)], test: true });
+    const okGuest = await confirmToGuest(env, post, { res_number: '54385181', name: 'Brent & Lauren Beasley' }, picked, 'Sample note from a guest', 'new', { to: [testAddress(env, admin)], test: true, agreedAt: Date.now() });
+    return json({ ok, okGuest, to: testAddress(env, admin) });
   }
 
   if (path === '/api/admin/lounge/posts/send') {
@@ -1339,7 +1339,7 @@ export async function handleLoungeAdmin(request, env, url) {
     // A test goes only to the signed-in admin's own address and never marks the post as emailed.
     const test = !!body.test;
     if (!test) await syncCabinSubscribers(env.DB);
-    const subs = test ? [{ email: admin.email, token: 'test' }] : await listSubscribers(env.DB);
+    const subs = test ? [{ email: testAddress(env, admin), token: 'test' }] : await listSubscribers(env.DB);
     if (!subs.length) return json({ ok: true, sent: 0, failed: 0 });
     const r = await emailPost(env, post, subs, test);
     if (r.sent && !test) await setPostEmailed(env.DB, post.id, Date.now());
@@ -1356,9 +1356,9 @@ export async function handleLoungeAdmin(request, env, url) {
     if (!row) return json({ error: 'not_found' }, 404);
     const test = !!body.test;
     if (!test) await syncCabinSubscribers(env.DB);
-    const subs = test ? [{ email: admin.email, token: 'test' }] : await listSubscribers(env.DB);
+    const subs = test ? [{ email: testAddress(env, admin), token: 'test' }] : await listSubscribers(env.DB);
     if (!subs.length) return json({ ok: true, sent: 0, failed: 0 });
-    return json(Object.assign({ ok: true, to: test ? admin.email : undefined }, await emailUpdate(env, type, row, subs, test)));
+    return json(Object.assign({ ok: true, to: test ? testAddress(env, admin) : undefined }, await emailUpdate(env, type, row, subs, test)));
   }
 
   const m = /^\/api\/admin\/lounge\/(posts|events|dates|links)(?:\/(delete))?$/.exec(path);

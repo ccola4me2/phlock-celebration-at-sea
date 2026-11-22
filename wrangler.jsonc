@@ -23,6 +23,8 @@
   },
   "vars": {
     "ADMIN_EMAILS": "PTVacations@aol.com,dawn.turnertravel@gmail.com,Brent.beasley@cruiseplanners.com,brentb@cruisestoursandtravel.com",
+    // Test emails ("Test to me") go to the inbox on the right instead of the admin sign-in address.
+    "TEST_EMAIL_REDIRECTS": "brent.beasley@cruiseplanners.com=brentb@cruisestoursandtravel.com",
     "SESSION_TTL_DAYS": "30",
     "MAIL_FROM": "Parrothead Day Cruise <noreply@parrotheadscruise.com>",
     "LEAD_NOTIFY_EMAILS": "PTVacations@aol.com,dawn.turnertravel@gmail.com,brentb@cruisestoursandtravel.com,brentb@cruiseshoppers.com",

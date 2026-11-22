@@ -15,7 +15,7 @@ import {
   listDripDue,
   updateDrip,
 } from './db.js';
-import { json, randomToken } from './util.js';
+import { json, randomToken, testAddress } from './util.js';
 
 const SITE = 'https://parrotheadscruise.com';
 const ENROLL_STATUSES = ['contacted', 'quoted'];
@@ -426,7 +426,7 @@ export async function handleDripAdmin(request, env, url) {
       [env.ADMIN_EMAILS, env.LEAD_NOTIFY_EMAILS, env.DRIP_REPLY_TO].filter(Boolean).join(',')
     ).map((x) => x.toLowerCase());
     const wanted = clip(body.to, 160).toLowerCase();
-    const to = wanted && allowed.includes(wanted) ? wanted : admin.email;
+    const to = wanted && allowed.includes(wanted) ? wanted : testAddress(env, admin);
     const lead = Object.assign(sampleLead(), {
       first_name: (admin.name || '').split(' ')[0] || 'there',
       email: to,

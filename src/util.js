@@ -99,3 +99,14 @@ export function cookieHeader(name, value, maxAgeSeconds) {
   if (typeof maxAgeSeconds === 'number') parts.push(`Max-Age=${maxAgeSeconds}`);
   return parts.join('; ');
 }
+
+// Where a test email goes for the signed-in admin: their own address, unless TEST_EMAIL_REDIRECTS (a dashboard or
+// wrangler var, "from@x.com=to@y.com" pairs separated by commas) sends it to a different inbox they actually read.
+export function testAddress(env, admin) {
+  const mine = String((admin && admin.email) || '').trim();
+  for (const pair of String((env && env.TEST_EMAIL_REDIRECTS) || '').split(',')) {
+    const [from, to] = pair.split('=').map((x) => (x || '').trim());
+    if (from && to && from.toLowerCase() === mine.toLowerCase()) return to;
+  }
+  return mine;
+}
