@@ -1135,6 +1135,65 @@ blockquote.quote-card {
   .story-prose p { font-size: 1.12rem; line-height: 1.72; }
 }
 
+/* Charity: Sherri's portrait beside her story */
+.story-split {
+  display: grid;
+  grid-template-columns: 270px minmax(0, 1fr);
+  gap: 3rem;
+  max-width: 1080px;
+  margin: 0 auto;
+  align-items: start;
+}
+.story-split .story { max-width: none; margin: 0; }
+.story-portrait { position: sticky; top: 110px; text-align: center; }
+.portrait-frame {
+  padding: 9px;
+  border: 1px solid rgba(201, 165, 69, 0.75);
+  border-radius: 22px;
+  background: linear-gradient(160deg, rgba(201, 165, 69, 0.2), rgba(201, 165, 69, 0.04));
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.45), 0 0 0 5px rgba(201, 165, 69, 0.08);
+}
+.portrait-frame img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  object-position: 50% 24%;
+  border-radius: 15px;
+}
+.portrait-cap { margin-top: 1.1rem; }
+.portrait-name {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  letter-spacing: 0.06em;
+  color: var(--gold-light);
+}
+.portrait-name::after {
+  content: "";
+  display: block;
+  width: 46px;
+  height: 2px;
+  margin: 0.55rem auto 0.5rem;
+  background: var(--gold);
+  border-radius: 2px;
+}
+.portrait-role {
+  display: block;
+  font-family: var(--font-body);
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.72);
+}
+@media (max-width: 860px) {
+  .story-split { grid-template-columns: 1fr; gap: 2rem; }
+  .story-portrait { position: static; }
+  .portrait-frame { max-width: 250px; margin: 0 auto; }
+}
+
 .hero.charity-hero {
   background:
     linear-gradient(180deg, rgba(6, 15, 28, 0.5) 0%, rgba(6, 15, 28, 0.32) 45%, rgba(6, 15, 28, 0.7) 100%),
